@@ -6,3 +6,4 @@ alembic
 asyncio
 supabase
 psycopg2
+pytz

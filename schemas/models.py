@@ -33,3 +33,12 @@ class Attendance(Base):
     __table_args__ = (
         PrimaryKeyConstraint('guild_id', 'user_id'),
     )
+    
+class Timezone(Base):
+    """
+    Records guild's timezone.
+    """
+    __tablename__ = 'Timezone'
+
+    guild_id = Column(BigInteger, ForeignKey('guilds.guild_id', ondelete='CASCADE'), primary_key=True)
+    time_delta = Column(Integer, nullable=True)

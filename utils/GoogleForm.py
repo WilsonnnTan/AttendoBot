@@ -1,10 +1,11 @@
 import re
-from datetime import time
+import pytz
 import json
 import requests
 import logging
 from discord.ext import commands
 from utils.database import DatabaseHandler
+from datetime import time
 
 
 db = DatabaseHandler()
@@ -120,119 +121,242 @@ class GoogleFormManager(commands.Cog):
     @commands.check_any(commands.has_permissions(administrator=True), 
                         commands.has_permissions(manage_guild=True))
     async def add_gform_url(self, ctx: commands.Context, url: str):
-        """Add/update Google Form URL for the guild"""
+        """
+        Add/update Google Form URL for the guild.
+
+        Example:
+        !add_gform_url https://forms.gle/abc123def456
+        """
         if not url.startswith(("https://docs.google.com/forms/", "https://forms.gle/")):
             await ctx.send("❌ That doesn't look like a Google Form link.")
             return
 
         success = db.upsert_guild_form_url(ctx.guild.id, url)
-        await ctx.send("✅ Google Form URL saved!" if success else "⚠️ Database error")
+        tz = db.upsert_timezone(ctx.guild.id)
+        await ctx.send("✅ Google Form URL saved!" if success and tz else "⚠️ Database error")
 
 
     @commands.command(name="delete_gform_url")
     @commands.check_any(commands.has_permissions(administrator=True), 
                         commands.has_permissions(manage_guild=True))
     async def delete_gform_url(self, ctx: commands.Context):
-        """Remove Google Form URL for the guild"""
+        """
+        Remove Google Form URL from the guild.
+
+        Example:
+        !delete_gform_url
+        """
         success = db.delete_guild_form_url(ctx.guild.id)
-        await ctx.send("🗑️ URL deleted" if success else "ℹ️ No URL set" if db.get_guild_form_url(ctx.guild.id) is None else "⚠️ Error")
+        await ctx.send("🗑️ URL deleted" if success else "No URL set" if db.get_guild_form_url(ctx.guild.id) is None else "⚠️ Error")
 
 
     @commands.command(name="list_gform_url")
     @commands.check_any(commands.has_permissions(administrator=True), 
                         commands.has_permissions(manage_guild=True))
     async def list_gform_url(self, ctx: commands.Context):
-        """List current Google Form URL"""
+        """
+        List current Google Form URL for the guild.
+
+        Example:
+        !list_gform_url
+        """
         form_url = db.get_guild_form_url(ctx.guild.id)
         await ctx.send(f"Current URL: {form_url}" if form_url else "No URL configured")
         
         
-    # @commands.command(name="attendance_time")
-    # @commands.check_any(commands.has_permissions(administrator=True),
-    #                     commands.has_permissions(manage_guild=True))
-    # async def attendance_time(self, ctx: commands.Context, schedule: str):
-    #     """
-    #     Set the weekly attendance window.
-    #     Format: <day>/<HH:MM>-<HH:MM>
-    #       • day: 1-7 (Monday=1 … Sunday=7) or full weekday name (e.g. Monday)
-    #       • HH:MM: 24-hour time
-    #     Example:
-    #       • !attendance_time 1/08:00-09:00
-    #       • !attendance_time Friday/18:45-20:00
-    #     """
-    #     # 1) Parse with regex
-    #     pattern = (
-    #         r'^(?P<day>\d{1}|[A-Za-z]+)'   # day part
-    #         r'\/'
-    #         r'(?P<h1>\d{1,2}):(?P<m1>\d{2})'  # start time
-    #         r'-'
-    #         r'(?P<h2>\d{1,2}):(?P<m2>\d{2})$' # end time
-    #     )
-    #     m = re.match(pattern, schedule)
-    #     if not m:
-    #         return await ctx.send(
-    #             "❌ Invalid format! Use `day/HH:MM-HH:MM`, e.g. `3/14:30-15:30`."
-    #         )
+    @commands.command(name="set_attendance_time")
+    @commands.check_any(commands.has_permissions(administrator=True),
+                        commands.has_permissions(manage_guild=True))
+    async def set_attendance_time(self, ctx: commands.Context, schedule: str):
+        """
+        Set the weekly attendance window.
+        Format: <day>/<HH:MM>-<HH:MM>
 
-    #     # 2) Extract and validate
-    #     day_raw = m.group('day')
-    #     h1, m1 = int(m.group('h1')), int(m.group('m1'))
-    #     h2, m2 = int(m.group('h2')), int(m.group('m2'))
+        Example:
+        !set_attendance_time Friday/08:00-09:00
+        !set_attendance_time 5/14:00-15:00
+        """
+        pattern = (
+            r'^(?P<day>\d{1}|[A-Za-z]+)'   
+            r'\/'
+            r'(?P<h1>\d{1,2}):(?P<m1>\d{2})'
+            r'-'
+            r'(?P<h2>\d{1,2}):(?P<m2>\d{2})$'
+        )
+        m = re.match(pattern, schedule)
+        if not m:
+            return await ctx.send(
+                "❌ Invalid format! Use `day/HH:MM-HH:MM`, e.g. `3/14:30-15:30`."
+            )
 
-    #     if not (0 <= h1 < 24 and 0 <= m1 < 60 and 0 <= h2 < 24 and 0 <= m2 < 60):
-    #         return await ctx.send("❌ Hours must be 0-23 and minutes 0-59.")
+        # Extract and validate
+        day_raw = m.group('day')
+        h1, m1 = int(m.group('h1')), int(m.group('m1'))
+        h2, m2 = int(m.group('h2')), int(m.group('m2'))
 
-    #     # Ensure start < end
-    #     start = time(hour=h1, minute=m1)
-    #     end   = time(hour=h2, minute=m2)
-    #     if start >= end:
-    #         return await ctx.send("❌ End time must be after start time.")
+        if not (0 <= h1 < 24 and 0 <= m1 < 60 and 0 <= h2 < 24 and 0 <= m2 < 60):
+            return await ctx.send("❌ Hours must be 0-23 and minutes 0-59.")
 
-    #     # 3) Normalize day
-    #     weekdays = {
-    #         'monday': 1, 'tuesday': 2, 'wednesday': 3,
-    #         'thursday': 4, 'friday': 5, 'saturday': 6, 'sunday': 7
-    #     }
-    #     try:
-    #         day = int(day_raw) if day_raw.isdigit() else weekdays[day_raw.lower()]
-    #     except (ValueError, KeyError):
-    #         return await ctx.send("❌ Day must be 1-7 or a weekday name (e.g. Monday).")
-    #     if not (1 <= day <= 7):
-    #         return await ctx.send("❌ Day number must be between 1 and 7.")
+        # Ensure start < end
+        start = time(hour=h1, minute=m1)
+        end   = time(hour=h2, minute=m2)
+        if start >= end:
+            return await ctx.send("❌ End time must be after start time.")
 
-    #     # 4) Store into your DB (implement upsert_attendance_window yourself)
-    #     success = db.upsert_attendance_window(
-    #         guild_id=ctx.guild.id,
-    #         day=day,
-    #         start_hour=h1, start_minute=m1,
-    #         end_hour=h2,   end_minute=m2
-    #     )
-    #     if not success:
-    #         return await ctx.send("⚠️ Failed to save attendance window. Please try again.")
-
-    #     # 5) Confirm back to user
-    #     # capitalize weekday name if given, else map number back
-    #     display_day = (
-    #         list(weekdays.keys())[list(weekdays.values()).index(day)].capitalize()
-    #         if day in weekdays.values() else f"Day {day}"
-    #     )
-    #     await ctx.send(
-    #         f"✅ Attendance window set for **{display_day}** from **{h1:02d}:{m1:02d}** "
-    #         f"to **{h2:02d}:{m2:02d}**."
-    #     )
-
+        # Normalize day
+        weekdays = {
+            'monday': 1, 'tuesday': 2, 'wednesday': 3,
+            'thursday': 4, 'friday': 5, 'saturday': 6, 'sunday': 7
+        }
+        try:
+            day = int(day_raw) if day_raw.isdigit() else weekdays[day_raw.lower()]
+        except (ValueError, KeyError):
+            return await ctx.send("❌ Day must be 1-7 or a weekday name (e.g. Monday).")
         
+        if not (1 <= day <= 7):
+            return await ctx.send("❌ Day number must be between 1 and 7.")
+
+        # Save to DB
+        success = db.upsert_attendance_window(
+            guild_id=ctx.guild.id,
+            day=day,
+            start_hour=h1, start_minute=m1,
+            end_hour=h2,   end_minute=m2
+        )
+        if not success:
+            return await ctx.send("⚠️ Failed to save attendance Time. Please try again.")
+
+        # Confirm back to user
+        # capitalize weekday name if given, else map number back
+        display_day = (
+            list(weekdays.keys())[list(weekdays.values()).index(day)].capitalize()
+            if day in weekdays.values() else f"Day {day}"
+        )
+        await ctx.send(
+            f"✅ Attendance Time set for **{display_day}** from **{h1:02d}:{m1:02d}** "
+            f"to **{h2:02d}:{m2:02d}**."
+        )
+
+
+    @commands.command(name="show_attendance_time")
+    @commands.check_any(commands.has_permissions(administrator=True),
+                        commands.has_permissions(manage_guild=True))
+    async def show_attendance_time(self, ctx: commands.Context):
+        """
+        Show the current attendance window for the server.
+
+        Example:
+        !show_attendance_time
+        """
+        record = db.get_attendance_window(ctx.guild.id)
+        if not record or record.get("day") is None:
+            return await ctx.send("❌ Attendance time has not been set yet.")
+
+        weekdays = {
+            1: 'Monday', 2: 'Tuesday', 3: 'Wednesday',
+            4: 'Thursday', 5: 'Friday', 6: 'Saturday', 7: 'Sunday'
+        }
+
+        day = record["day"]
+        start_h = record["start_hour"]
+        start_m = record["start_minute"]
+        end_h = record["end_hour"]
+        end_m = record["end_minute"]
+
+        display_day = weekdays.get(day, f"Day {day}")
+        await ctx.send(
+            f"📅 Attendance Time **{display_day}**: "
+            f"{start_h:02d}:{start_m:02d} - {end_h:02d}:{end_m:02d}"
+        )
+
+    @commands.command(name="delete_attendance_time")
+    @commands.check_any(commands.has_permissions(administrator=True),
+                        commands.has_permissions(manage_guild=True))
+    async def delete_attendance_time(self, ctx: commands.Context):
+        """
+        Delete the attendance time configuration.
+
+        Example:
+        !delete_attendance_time
+        """
+        success = db.delete_attendance_window(ctx.guild.id)
+        if not success:
+            return await ctx.send("⚠️ No attendance Time found.")
+        await ctx.send(f"🗑️ Attendance Time has been deleted.")
+        
+    
+    @commands.command(name="set_timezone")
+    @commands.check_any(commands.has_permissions(administrator=True),
+                        commands.has_permissions(manage_guild=True))
+    async def set_timezone(self, ctx: commands.Context, offset: str):
+        """
+        Set the timezone offset for the guild.
+        Range: -12 to +14
+
+        Example:
+        !set_timezone +7
+        !set_timezone -5
+        !set_timezone 0
+        """
+        try:
+            offset_int = int(offset.replace("+", ""))
+            if not -12 <= offset_int <= 14:
+                raise ValueError
+        except ValueError:
+            return await ctx.send("❌ Invalid timezone offset. Please enter a number between -12 and +14.")
+
+        success = db.upsert_timezone(ctx.guild.id, offset_int)
+        await ctx.send(f"✅ Timezone offset saved as UTC{offset_int:+}" if success else "⚠️ Failed to save timezone.")
+    
+
+    @commands.command(name="show_timezone")
+    @commands.check_any(commands.has_permissions(administrator=True),
+                        commands.has_permissions(manage_guild=True))
+    async def show_timezone(self, ctx: commands.Context):
+        """
+        Show the timezone offset for the guild.
+        
+        Example:
+        !show_timezone
+        """
+        data = db.get_timezone(ctx.guild.id)
+        if data and data.get("time_delta") is not None:
+            time_delta = data["time_delta"]
+            await ctx.send(f"✅ Timezone offset saved as UTC{time_delta:+d}")
+        else:
+            await ctx.send("⚠️ No timezone offset has been set for this server.")
+            
+            
     @commands.command(name="help")
     @commands.check_any(commands.has_permissions(administrator=True), 
                         commands.has_permissions(manage_guild=True))
     async def help(self, ctx: commands.Context):
         """List command"""
         help_text = (
-            "**📜 Available Commands:**\n"
-            "1. `!add_gform_url <link>` — Add a new Google Form URL\n"
-            "2. `!delete_gform_url` — Delete the existing Google Form URL\n"
-            "3. `!list_gform_url` — Show the current Google Form URL\n"
-            "4. `!hadir` — Mark your attendance\n"
+            "```"
+            "📜 Available Commands:\n"
+            "1. !add_gform_url <link>\n"
+            "   Example: !add_gform_url https://forms.gle/abc123def456\n\n"
+            "2. !delete_gform_url\n"
+            "   Example: !delete_gform_url\n\n"
+            "3. !list_gform_url\n"
+            "   Example: !list_gform_url\n\n"
+            "4. !hadir\n"
+            "   Example: !hadir\n\n"
+            "5. !set_attendance_time <day>/HH:MM-HH:MM\n"
+            "   Example: !set_attendance_time Friday/08:00-09:00\n"
+            "   Example: !set_attendance_time 5/14:00-15:00\n\n"
+            "6. !show_attendance_time\n"
+            "   Example: !show_attendance_time\n\n"
+            "7. !delete_attendance_time\n"
+            "   Example: !delete_attendance_time\n\n"
+            "8. !set_timezone <delta>\n"
+            "   Set the time difference from UTC (default: +7 for Jakarta Time Zone)\n"
+            "   Example: !set_timezone -5\n"
+            "   Example: !set_timezone 0\n\n"
+            "9. !show_timezone\n"
+            "   Example: !show_timezone\n"
+            "```"
         )
         await ctx.send(help_text)
         

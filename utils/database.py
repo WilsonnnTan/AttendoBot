@@ -97,7 +97,7 @@ class DatabaseHandler:
                 "timestamp": now,
                 "form_url": form_url
             }
-            self._supabase.table("attendances").insert(data).execute()
+            self._supabase.table("attendances").upsert(data).execute()
             return True
         except Exception as e:
             logger.error(f"Insert attendance failed: {e}")
@@ -128,4 +128,79 @@ class DatabaseHandler:
         except Exception as e:
             logger.error(f"Check hadir error: {e}")
             return False
+        
+    
+    def upsert_attendance_window(self, guild_id: int, day: int, start_hour: int, start_minute: int, end_hour: int, end_minute: int) -> bool:
+        try:
+            data = {
+                "guild_id": guild_id,
+                "day": day,
+                "start_hour": start_hour,
+                "start_minute": start_minute,
+                "end_hour": end_hour,
+                "end_minute": end_minute
+            }
+            self._supabase.table("guilds").upsert(data).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to upsert attendance window: {e}")
+            return False
+        
+    def get_attendance_window(self, guild_id: int):
+        try:
+            result = self._supabase.table("guilds").select(
+                "day, start_hour, start_minute, end_hour, end_minute"
+            ).eq("guild_id", guild_id).execute()
+            return result.data[0] if result.data else None
+        except Exception as e:
+            logger.error(f"Failed to fetch attendance window: {e}")
+            return None
+        
+    def delete_attendance_window(self, guild_id: int):
+        """
+        Clears out the attendance window fields for this guild
+        (sets day, start_hour, start_minute, end_hour, end_minute to NULL).
+        """
+        try:
+            payload = {
+                "day": None,
+                "start_hour": None,
+                "start_minute": None,
+                "end_hour": None,
+                "end_minute": None
+            }
+            result = (
+                self._supabase
+                    .table("guilds")
+                    .update(payload)
+                    .eq("guild_id", guild_id)
+                    .execute()
+            )
+            if not result.data:
+                return False
+            return True
 
+        except Exception as e:
+            logger.error(f"Failed to delete attendance window: {e}")
+            return False
+    
+    def upsert_timezone(self, guild_id: int, offset_int: int = 7):
+        try:
+            payload = {
+                "guild_id": guild_id,
+                "time_delta" : offset_int
+            }
+            self._supabase.table("Timezone").upsert(payload).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to upsert Timezone: {e}")
+            return False
+        
+        
+    def get_timezone(self, guild_id: int):
+        try:
+            result = self._supabase.table("Timezone").select("time_delta").eq("guild_id", guild_id).execute()
+            return result.data[0] if result.data else None
+        except Exception as e:
+            logger.error(f"Failed to fetch timezone for guild {guild_id}: {e}")
+            return None

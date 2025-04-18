@@ -333,12 +333,20 @@ class GoogleFormManager(commands.Cog):
                         commands.has_permissions(manage_guild=True))
     async def help(self, ctx: commands.Context):
         """
-        Sends a formatted list of all available bot commands and their usage examples.
+        Sends Google Form setup instructions and a formatted list of all available bot commands and their usage examples.
         This command is restricted to users with administrator or manage_guild permissions.
 
         Args:
             ctx (commands.Context): The context in which the command was invoked.
         """
+        # Google Form setup instructions
+        setup_instructions = (
+            "**How to Set Up Google Form for Attendance:**\n"
+            "1. Create a Google Form with one text field for the name.\n"
+            "2. Get the form URL (either the full URL or the shortened forms.gle link).\n"
+            "3. Use the `!add_gform_url` command with your form URL.\n"
+            "4. The bot will automatically handle form submissions for attendance.\n"
+        )
         # Multi-line string containing all commands and usage examples for the bot.
         help_text = (
             "```\n"
@@ -366,5 +374,6 @@ class GoogleFormManager(commands.Cog):
             "   Example: !show_timezone\n"
             "```"
         )
-        # Send the help message as a code block for better readability.
+        # Send setup instructions first, then the help message
+        await ctx.send(setup_instructions)
         await ctx.send(help_text)

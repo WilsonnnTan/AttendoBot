@@ -1,100 +1,130 @@
-import sqlite3
+import os
 import logging
-from datetime import datetime
+from uuid import uuid4
+from datetime import datetime, timezone
+from dotenv import load_dotenv
+from supabase import create_client, Client
+from sqlalchemy import Column, BigInteger, Text, DateTime, ForeignKey, PrimaryKeyConstraint
+from sqlalchemy.ext.declarative import declarative_base
+from typing import Optional, Tuple
 
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.WARNING,  # Set the logging level
-    format='%(asctime)s - %(levelname)s - %(message)s',  # Define the log message format
-    handlers=[logging.StreamHandler()]  # Output logs to the console
+    level=logging.WARNING,
+    format='%(asctime)s - %(levelname)s - %(message)s', 
+    handlers=[
+        logging.StreamHandler() 
+    ]
 )
-logger = logging.getLogger(__name__)  # Create a logger for this module
+logger = logging.getLogger(__name__)
 
 
-# Function to create a connection to the database
-def create_connection():
-    try:
-        conn = sqlite3.connect('attendance.db')
-        return conn
-    except sqlite3.Error as e:
-        logger.error(f"Failed to connect to the database: {e}")
-        return None
+class DatabaseHandler:
+    _instance = None
+    _supabase: Client = None
 
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(DatabaseHandler, cls).__new__(cls)
+            cls._initialize()
+        return cls._instance
 
-def execute_query(query, params=None, fetch=False, fetchone=False):
-    try:
-        conn = create_connection()
-        if conn is None:
+    @classmethod
+    def _initialize(cls):
+        try:
+            cls._supabase = create_client(
+                os.getenv("SUPABASE_URL"),
+                os.getenv("SUPABASE_KEY")
+            )
+            logger.info("Supabase client initialized.")
+        except Exception as e:
+            logger.error(f"Supabase initialization failed: {e}")
+            cls._supabase = None
+
+    # Guild form URL operations
+    def upsert_guild_form_url(self, guild_id: int, url: str) -> bool:
+        try:
+            result = self._supabase.table("guilds").select("*").eq("guild_id", guild_id).execute()
+            exists = result.data and len(result.data) > 0
+
+            upsert_data = {
+                "guild_id": guild_id,
+                "form_url": url
+            }
+            self._supabase.table("guilds").upsert(upsert_data).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Supabase upsert error: {e}")
+            return False
+
+    def get_guild_form_url(self, guild_id: int) -> Optional[str]:
+        try:
+            result = self._supabase.table("guilds").select("form_url").eq("guild_id", guild_id).execute()
+            if result.data:
+                return result.data[0].get("form_url")
             return None
-        cursor = conn.cursor()
-        cursor.execute(query, params or ())
+        except Exception as e:
+            logger.error(f"Error getting guild form URL: {e}")
+            return None
+    
+    def delete_guild_form_url(self, guild_id: int) -> bool:
+        try:
+            self._supabase.table("guilds").update({"form_url": None}).eq("guild_id", guild_id).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete guild form URL: {e}")
+            return False
 
-        result = None
-        if fetch:
-            result = cursor.fetchall()
-        elif fetchone:
-            result = cursor.fetchone()
+    # Attendance operations
+    def get_attendance(self, guild_id: int, user_id: int):
+        try:
+            result = self._supabase.table("attendances").select("*")\
+                .eq("guild_id", guild_id).eq("user_id", user_id).execute()
+            return result.data[0] if result.data else None
+        except Exception as e:
+            logger.error(f"Error fetching attendance: {e}")
+            return None
 
-        conn.commit()
-        conn.close()
-        return result if (fetch or fetchone) else True
+    def insert_attendance(self, guild_id: int, user_id: int) -> bool:
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            data = {
+                "guild_id": guild_id,
+                "user_id": user_id,
+                "timestamp": now
+            }
+            self._supabase.table("attendances").insert(data).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Insert attendance failed: {e}")
+            return False
 
-    except sqlite3.Error as e:
-        logger.error(f"Database error: {e}")
-        if conn:
-            conn.close()
-        return None
+    def update_attendance(self, guild_id: int, user_id: int) -> bool:
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            self._supabase.table("attendances")\
+                .update({"timestamp": now})\
+                .eq("guild_id", guild_id).eq("user_id", user_id).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Update attendance failed: {e}")
+            return False
 
+    def check_hadir(self, guild_id: int, user_id: int) -> bool:
+        try:
+            existing = self.get_attendance(guild_id, user_id)
+            today = datetime.now(timezone.utc).date()
 
+            if existing:
+                attendance_date = datetime.fromisoformat(existing["timestamp"]).date()
+                if attendance_date != today:
+                    return self.update_attendance(guild_id, user_id)
+                return False  # Already marked hadir today
+            return self.insert_attendance(guild_id, user_id)
+        except Exception as e:
+            logger.error(f"Check hadir error: {e}")
+            return False
 
-# Create the table for attendance if not exists
-def create_table():
-    query = '''
-    CREATE TABLE IF NOT EXISTS attendance (
-        user_id INTEGER PRIMARY KEY,
-        date TEXT
-    )'''
-    execute_query(query)
-
-
-# Function to retrieve the date of attendance for a user
-def get_date_of_attendance(user_id):
-    query = "SELECT date FROM attendance WHERE user_id = ?"
-    return execute_query(query, (user_id,), fetchone=True)
-
-
-# Insert today's attendance
-def insert_attendance(user_id, today):
-    query = "INSERT INTO attendance (user_id, date) VALUES (?, ?)"
-    return execute_query(query, (user_id, today))
-
-
-# Function to update attendance
-def update_attendance(user_id, today):
-    query = "UPDATE attendance SET date = ? WHERE user_id = ?"
-    return execute_query(query, (today, user_id))
-
-
-# Function to check if the user already marked 'hadir' today
-def check_hadir(user_id):
-    today = datetime.now().date()
-    existing_attendance = get_date_of_attendance(user_id)
-
-    if existing_attendance:
-        if existing_attendance[0] != str(today):
-            # If the attendance is not from today, update the record
-            if not update_attendance(user_id, str(today)):
-                return False  # Return False if update fails
-            return True  # Successfully updated to today's attendance
-        return False
-
-    # Insert today's attendance if not marked already
-    if not insert_attendance(user_id, str(today)):
-        return False
-
-    return True  # Successfully marked hadir
-  
-
-# Initial setup - Create table if not exists
-create_table()

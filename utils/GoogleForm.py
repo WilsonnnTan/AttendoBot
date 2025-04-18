@@ -341,11 +341,13 @@ class GoogleFormManager(commands.Cog):
         """
         # Google Form setup instructions
         setup_instructions = (
+            "```\n"
             "**How to Set Up Google Form for Attendance:**\n"
             "1. Create a Google Form with one text field for the name.\n"
             "2. Get the form URL (either the full URL or the shortened forms.gle link).\n"
             "3. Use the `!add_gform_url` command with your form URL.\n"
             "4. The bot will automatically handle form submissions for attendance.\n"
+            "```"
         )
         # Multi-line string containing all commands and usage examples for the bot.
         help_text = (

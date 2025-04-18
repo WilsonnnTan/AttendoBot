@@ -5,5 +5,5 @@ sqlalchemy
 alembic
 asyncio
 supabase
-psycopg2
+psycopg2-binary
 pytz

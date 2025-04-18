@@ -79,22 +79,23 @@ class DatabaseHandler:
             return False
 
     # Attendance operations
-    def get_attendance(self, guild_id: int, user_id: int):
+    def get_attendance(self, guild_id: int, user_id: int, form_url: str):
         try:
             result = self._supabase.table("attendances").select("*")\
-                .eq("guild_id", guild_id).eq("user_id", user_id).execute()
+                .eq("guild_id", guild_id).eq("user_id", user_id).eq("form_url", form_url).execute()
             return result.data[0] if result.data else None
         except Exception as e:
             logger.error(f"Error fetching attendance: {e}")
             return None
 
-    def insert_attendance(self, guild_id: int, user_id: int) -> bool:
+    def insert_attendance(self, guild_id: int, user_id: int, form_url: str) -> bool:
         try:
             now = datetime.now(timezone.utc).isoformat()
             data = {
                 "guild_id": guild_id,
                 "user_id": user_id,
-                "timestamp": now
+                "timestamp": now,
+                "form_url": form_url
             }
             self._supabase.table("attendances").insert(data).execute()
             return True
@@ -102,28 +103,28 @@ class DatabaseHandler:
             logger.error(f"Insert attendance failed: {e}")
             return False
 
-    def update_attendance(self, guild_id: int, user_id: int) -> bool:
+    def update_attendance(self, guild_id: int, user_id: int, form_url: str) -> bool:
         try:
             now = datetime.now(timezone.utc).isoformat()
             self._supabase.table("attendances")\
-                .update({"timestamp": now})\
+                .update({"timestamp": now, "form_url": form_url})\
                 .eq("guild_id", guild_id).eq("user_id", user_id).execute()
             return True
         except Exception as e:
             logger.error(f"Update attendance failed: {e}")
             return False
 
-    def check_hadir(self, guild_id: int, user_id: int) -> bool:
+    def check_hadir(self, guild_id: int, user_id: int, form_url: str) -> bool:
         try:
-            existing = self.get_attendance(guild_id, user_id)
+            existing = self.get_attendance(guild_id, user_id, form_url)
             today = datetime.now(timezone.utc).date()
 
             if existing:
                 attendance_date = datetime.fromisoformat(existing["timestamp"]).date()
                 if attendance_date != today:
-                    return self.update_attendance(guild_id, user_id)
+                    return self.update_attendance(guild_id, user_id, form_url)
                 return False  # Already marked hadir today
-            return self.insert_attendance(guild_id, user_id)
+            return self.insert_attendance(guild_id, user_id, form_url)
         except Exception as e:
             logger.error(f"Check hadir error: {e}")
             return False

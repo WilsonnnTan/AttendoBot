@@ -3,9 +3,10 @@ import discord
 import logging
 from dotenv import load_dotenv
 from discord.ext import commands
-from utils.GoogleForm import GoogleFormHandler
+from utils.GoogleForm import GoogleForm_Url_Handler, GoogleFormManager
 from utils.database import DatabaseHandler
 import asyncio
+
 
 # Load environment variables
 load_dotenv(override=True)
@@ -21,61 +22,8 @@ logger = logging.getLogger(__name__)
 # Initialize Discord bot
 intents = discord.Intents.default()
 intents.message_content = True
-
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
-
-@bot.event
-async def on_command_error(ctx: commands.Context, error: commands.CommandError):
-    if isinstance(error, commands.CheckFailure):
-        await ctx.send("❌ You do not have permission to use this command.")
-        return
-    raise error
-
 db = DatabaseHandler()
-form_handler = GoogleFormHandler()
-
-class GoogleFormManager(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
-
-    @commands.command(name="add_gform_url")
-    @commands.check_any(commands.has_permissions(administrator=True), commands.has_permissions(manage_guild=True))
-    async def add_gform_url(self, ctx: commands.Context, url: str):
-        """Add/update Google Form URL for the guild"""
-        if not url.startswith(("https://docs.google.com/forms/", "https://forms.gle/")):
-            await ctx.send("❌ That doesn't look like a Google Form link.")
-            return
-
-        success = db.upsert_guild_form_url(ctx.guild.id, url)
-        await ctx.send("✅ Google Form URL saved!" if success else "⚠️ Database error")
-
-    @commands.command(name="delete_gform_url")
-    @commands.check_any(commands.has_permissions(administrator=True), commands.has_permissions(manage_guild=True))
-    async def delete_gform_url(self, ctx: commands.Context):
-        """Remove Google Form URL for the guild"""
-        success = db.delete_guild_form_url(ctx.guild.id)
-        await ctx.send("🗑️ URL deleted" if success else "ℹ️ No URL set" if db.get_guild_form_url(ctx.guild.id) is None else "⚠️ Error")
-
-    @commands.command(name="list_gform_url")
-    @commands.check_any(commands.has_permissions(administrator=True), commands.has_permissions(manage_guild=True))
-    async def list_gform_url(self, ctx: commands.Context):
-        """List current Google Form URL"""
-        form_url = db.get_guild_form_url(ctx.guild.id)
-        await ctx.send(f"Current URL: {form_url}" if form_url else "No URL configured")
-        
-    @commands.command(name="help")
-    @commands.check_any(commands.has_permissions(administrator=True), commands.has_permissions(manage_guild=True))
-    async def help(self, ctx: commands.Context):
-        """List command"""
-        help_text = (
-            "**📜 Available Commands:**\n"
-            "1. `!add_gform_url <link>` — Add a new Google Form URL\n"
-            "2. `!delete_gform_url` — Delete the existing Google Form URL\n"
-            "3. `!list_gform_url` — Show the current Google Form URL\n"
-            "4. `!hadir` — Mark your attendance\n"
-        )
-        await ctx.send(help_text)
-
 
 @bot.command()
 async def hadir(ctx):
@@ -91,31 +39,38 @@ async def hadir(ctx):
 
     # Process attendance
     try:
-        if db.check_hadir(guild_id, user.id):
+        if db.check_hadir(guild_id, user.id, form_url):
             # Extract form URLs
-            view_url, post_url = form_handler.extract_urls(form_url)
+            view_url, post_url = GoogleForm_Url_Handler.extract_urls(form_url)
             if not view_url or not post_url:
                 raise ValueError("Invalid form URL structure")
 
             # Get form fields
-            form_data = form_handler.fetch_form_data(view_url)
+            form_data = GoogleForm_Url_Handler.fetch_form_data(view_url)
             if not form_data:
                 raise ValueError("Failed to fetch form data")
 
             # Prepare submission
-            entry_ids = list(GoogleFormHandler.get_entry_ids(form_data))
+            entry_ids = list(GoogleForm_Url_Handler.get_entry_ids(form_data))
             if not entry_ids:
                 raise ValueError("No form fields found")
 
             submission_data = {"entry." + str(entry_ids[0]): user.display_name}
-            if form_handler.submit_response(post_url, submission_data):
+            if GoogleForm_Url_Handler.submit_response(post_url, submission_data):
                 await ctx.send(f"{user.mention} Hadir recorded! ✅")
             else:
                 logger.error("⚠️ Form submission failed")
 
     except Exception as e:
         logger.error(f"Attendance error: {e}")
-
+        
+        
+@bot.event
+async def on_command_error(ctx: commands.Context, error: commands.CommandError):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send("❌ You do not have permission to use this command.")
+        return
+    raise error
 
 @bot.event
 async def on_ready():

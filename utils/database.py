@@ -1,3 +1,9 @@
+# Copyright (c) 2025 WilsonnnTan. All Rights Reserved.
+"""
+Database handler for the Discord Attendance Bot.
+Provides methods for interacting with the Supabase backend, including CRUD operations for guilds, attendance, and timezone settings.
+Implements singleton pattern to ensure a single database client instance.
+"""
 import os
 import logging
 from uuid import uuid4
@@ -8,10 +14,10 @@ from sqlalchemy import Column, BigInteger, Text, DateTime, ForeignKey, PrimaryKe
 from sqlalchemy.ext.declarative import declarative_base
 from typing import Optional, Tuple
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
 
-# Configure logging
+# Configure logging for database operations
 logging.basicConfig(
     level=logging.WARNING,
     format='%(asctime)s - %(levelname)s - %(message)s', 
@@ -21,8 +27,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 class DatabaseHandler:
+    """
+    Singleton class for database operations using Supabase.
+    Handles guild configuration, attendance records, and timezone management.
+    """
     _instance = None
     _supabase: Client = None
 
@@ -34,6 +43,9 @@ class DatabaseHandler:
 
     @classmethod
     def _initialize(cls):
+        """
+        Initialize the Supabase client using environment variables.
+        """
         try:
             cls._supabase = create_client(
                 os.getenv("SUPABASE_URL"),
@@ -46,6 +58,16 @@ class DatabaseHandler:
 
     # Guild form URL operations
     def upsert_guild_form_url(self, guild_id: int, url: str) -> bool:
+        """
+        Upsert a guild's form URL in the database.
+        
+        Args:
+        guild_id (int): The ID of the guild.
+        url (str): The form URL to upsert.
+        
+        Returns:
+        bool: True if the operation was successful, False otherwise.
+        """
         try:
             result = self._supabase.table("guilds").select("*").eq("guild_id", guild_id).execute()
             exists = result.data and len(result.data) > 0

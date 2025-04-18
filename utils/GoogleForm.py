@@ -1,3 +1,4 @@
+# Copyright (c) 2025 WilsonnnTan. All Rights Reserved.
 import re
 import pytz
 import json
@@ -331,9 +332,16 @@ class GoogleFormManager(commands.Cog):
     @commands.check_any(commands.has_permissions(administrator=True), 
                         commands.has_permissions(manage_guild=True))
     async def help(self, ctx: commands.Context):
-        """List command"""
+        """
+        Sends a formatted list of all available bot commands and their usage examples.
+        This command is restricted to users with administrator or manage_guild permissions.
+
+        Args:
+            ctx (commands.Context): The context in which the command was invoked.
+        """
+        # Multi-line string containing all commands and usage examples for the bot.
         help_text = (
-            "```"
+            "```\n"
             "📜 Available Commands:\n"
             "1. !add_gform_url <link>\n"
             "   Example: !add_gform_url https://forms.gle/abc123def456\n\n"
@@ -343,7 +351,7 @@ class GoogleFormManager(commands.Cog):
             "   Example: !list_gform_url\n\n"
             "4. !hadir\n"
             "   Example: !hadir\n\n"
-            "5. !set_attendance_time <day>/HH:MM-HH:MM\n"
+            "5. !set_attendance_time <day>/<HH:MM>-<HH:MM>\n"
             "   Example: !set_attendance_time Friday/08:00-09:00\n"
             "   Example: !set_attendance_time 5/14:00-15:00\n\n"
             "6. !show_attendance_time\n"
@@ -358,5 +366,5 @@ class GoogleFormManager(commands.Cog):
             "   Example: !show_timezone\n"
             "```"
         )
+        # Send the help message as a code block for better readability.
         await ctx.send(help_text)
-        

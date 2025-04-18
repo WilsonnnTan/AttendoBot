@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, Text, DateTime, ForeignKey, PrimaryKeyConstraint
+from sqlalchemy import Column, BigInteger, Text, DateTime, ForeignKey, PrimaryKeyConstraint, Integer
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -11,6 +11,11 @@ class Guild(Base):
 
     guild_id = Column(BigInteger, primary_key=True)
     form_url = Column(Text, nullable=True)
+    day = Column(Integer, nullable=True)
+    start_hour = Column(Integer, nullable=True)
+    start_minute = Column(Integer, nullable=True)
+    end_hour = Column(Integer, nullable=True)
+    end_minute = Column(Integer, nullable=True)
     
 class Attendance(Base):
     """

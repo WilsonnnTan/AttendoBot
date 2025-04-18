@@ -4,7 +4,6 @@
 
 ```
 Discord-Attendance-Bot/
-├── .env                # Environment variables (not committed)
 ├── .env.example        # Example environment config
 ├── Dockerfile          # Docker configuration for deployment
 ├── LICENSE             # License file

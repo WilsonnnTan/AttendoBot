@@ -22,8 +22,9 @@ class Attendance(Base):
     guild_id = Column(BigInteger, ForeignKey('guilds.guild_id', ondelete='CASCADE'), nullable=False)
     user_id = Column(BigInteger, nullable=False)
     timestamp = Column(DateTime, nullable=False)
+    form_url = Column(Text, nullable=True)
 
-    # Composite primary key
+    # Composite primary key 
     __table_args__ = (
         PrimaryKeyConstraint('guild_id', 'user_id'),
     )

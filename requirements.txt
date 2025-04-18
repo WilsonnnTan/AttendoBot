@@ -5,3 +5,4 @@ sqlalchemy
 alembic
 asyncio
 supabase
+psycopg2

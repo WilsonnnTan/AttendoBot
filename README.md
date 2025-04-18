@@ -1,4 +1,4 @@
-# Discord Attendance Bot
+# AttendoBot
 
 A Discord bot that automates attendance tracking using Google Forms. The bot allows server administrators to configure attendance windows, manage Google Form URLs, and lets users mark their attendance with a simple command.
 
@@ -22,8 +22,8 @@ A Discord bot that automates attendance tracking using Google Forms. The bot all
 
 1. Clone the repository and navigate to the project directory:
 ```bash
-git clone https://github.com/WilsonnnTan/Discord-Attendance-Bot.git
-cd Discord-Attendance-Bot
+git clone https://github.com/WilsonnnTan/AttendoBot.git
+cd AttendoBot
 ```
 
 2. Create and activate a virtual environment (recommended):

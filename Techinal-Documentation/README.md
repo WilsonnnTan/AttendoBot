@@ -24,11 +24,53 @@ The Discord Attendance Bot is a modular Python application built on `discord.py`
 
 ---
 
+## Local Development Setup
+
+You can run the Discord Attendance Bot locally using Python and a virtual environment. This is recommended for development and testing.
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/WilsonnnTan/AttendoBot.git
+cd AttendoBot
+```
+
+### 2. Create and activate a virtual environment
+#### Windows
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+#### Linux/MacOS
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Configure environment variables
+Copy `.env.example` to `.env` and edit it with your credentials.
+
+### 5. Initialize the database (if needed)
+```bash
+alembic upgrade head
+```
+
+### 6. Run the bot
+```bash
+python app.py
+```
+
+---
+
 ## Docker Setup
 
 ### 1. Build the Docker image
 ```bash
-docker build -t discord-attendance-bot .
+docker build -t AttendoBot .
 ```
 
 ### 2. Configure environment variables
@@ -36,18 +78,18 @@ Copy `.env.example` to `.env` and edit it with your credentials, or set variable
 
 ### 3. Run the bot container
 ```bash
-docker run --env-file .env --name discord-attendance-bot discord-attendance-bot
+docker run --env-file .env --name AttendoBot AttendoBot
 ```
 
 ### 4. (Optional) Run as a background service
 ```bash
-docker run -d --env-file .env --name discord-attendance-bot discord-attendance-bot
+docker run -d --env-file .env --name AttendoBot AttendoBot
 ```
 
 ### 5. Database Migrations
 If you need to run Alembic migrations inside the container:
 ```bash
-docker run --rm --env-file .env discord-attendance-bot alembic upgrade head
+docker run --rm --env-file .env AttendoBot alembic upgrade head
 ```
 
 ---

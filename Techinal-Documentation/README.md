@@ -141,7 +141,7 @@ See `schemas/models.py` for SQLAlchemy ORM definitions.
 ## Deployment
 
 - **Local:**  
-  Follow the steps in the README for Python virtualenv setup.
+  see [Local Development Setup](#local-development-setup).
 
 - **Docker:**  
   See [Docker Setup](#docker-setup).

@@ -125,7 +125,7 @@ See `schemas/models.py` for SQLAlchemy ORM definitions.
 ## Business Logic
 
 - **Attendance Marking**:  
-  Users mark attendance with `!hadir`. The bot checks the configured time window and prevents duplicate attendance for the same day.
+  Users mark attendance with `/hadir`. The bot checks the configured time window and prevents duplicate attendance for the same day.
 
 - **Google Form Integration**:  
   Admins configure a Google Form URL. The bot extracts field IDs, submits attendance, and validates URLs.
@@ -154,10 +154,10 @@ See `schemas/models.py` for SQLAlchemy ORM definitions.
 A: Check that the bot is running, has the correct token, and has permission to read/send messages in your Discord server.
 
 **Q: Attendance is denied even during the correct window.**  
-A: Verify your server timezone and attendance window configuration with `!show_timezone` and `!show_attendance_time`.
+A: Verify your server timezone and attendance window configuration with `/show_timezone` and `/show_attendance_time`.
 
 **Q: How do I reset the attendance window or form URL?**  
-A: Use `!delete_attendance_time` or `!delete_gform_url` as an admin.
+A: Use `/delete_attendance_time` or `/delete_gform_url` as an admin.
 
 **Q: How do I migrate the database?**  
 A: Use `alembic upgrade head` locally, or run the migration command inside your Docker container as shown above.

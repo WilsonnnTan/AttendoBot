@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Initialize Discord bot and supporting handlers
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
+bot = commands.Bot(command_prefix="/", intents=intents, help_command=None)
 form_handler = GoogleForm_Url_Handler()
 db = DatabaseHandler()
 

@@ -116,7 +116,7 @@ LOG_LEVEL=WARNING
 ### Tables
 - **guilds**: Stores guild (server) configuration, including Google Form URL and attendance window.
 - **attendances**: Records each user's attendance per guild.
-- **Timezone**: Stores timezone offset per guild.
+- **Timezone**: Stores timezone offset per guild. Default is UTC+7 (Jakarta) if not set.
 
 See `schemas/models.py` for SQLAlchemy ORM definitions.
 
@@ -125,7 +125,7 @@ See `schemas/models.py` for SQLAlchemy ORM definitions.
 ## Business Logic
 
 - **Attendance Marking**:  
-  Users mark attendance with `/hadir`. The bot checks the configured time window and prevents duplicate attendance for the same day.
+  Users mark attendance with `/hadir`. The bot checks the configured time window and prevents duplicate attendance for the same day. If no attendance window is set, users can mark attendance anytime.
 
 - **Google Form Integration**:  
   Admins configure a Google Form URL. The bot extracts field IDs, submits attendance, and validates URLs.
@@ -134,7 +134,7 @@ See `schemas/models.py` for SQLAlchemy ORM definitions.
   Only users with `administrator` or `manage_guild` permissions can configure the bot.
 
 - **Timezone & Attendance Window**:  
-  Attendance is only accepted within the configured window and timezone.
+  Attendance is only accepted within the configured window and timezone. If not set, attendance can be marked anytime and UTC+7 (Jakarta) is used as the default timezone.
 
 ---
 

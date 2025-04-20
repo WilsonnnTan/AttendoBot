@@ -56,7 +56,7 @@ class Attendance(commands.Cog):
         tz = db.get_timezone(guild_id)
         if not form_url:
             return await interaction.response.send_message(
-                "❌ No attendance configured.", ephemeral=True
+                "❌ No attendance configured.", ephemeral=False
             )
 
         # Check time window if set
@@ -76,7 +76,7 @@ class Attendance(commands.Cog):
 
             if today != record["day"] or not (start <= current_time <= end):
                 return await interaction.response.send_message(
-                    f"{user.mention} ❌ Attendance denied.", ephemeral=True
+                    f"{user.mention} ❌ Attendance denied.", ephemeral=False
                 )
 
         # Process attendance
@@ -89,7 +89,8 @@ class Attendance(commands.Cog):
 
                 if form_handler.submit_response(post_url, submission_data):
                     return await interaction.response.send_message(
-                        f"{user.mention} Hadir recorded! ✅"
+                        f"{user.mention} Hadir recorded! ✅",
+                        ephemeral=False
                     )
                 else:
                     logger.error("⚠️ Form submission failed")

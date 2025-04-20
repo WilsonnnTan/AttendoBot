@@ -4,6 +4,7 @@ import pytz
 import json
 import requests
 import logging
+import discord
 from discord.ext import commands
 from discord import app_commands
 from utils.database import DatabaseHandler

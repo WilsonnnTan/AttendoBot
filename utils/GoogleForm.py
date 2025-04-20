@@ -118,10 +118,9 @@ class GoogleFormManager(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(name="add_gform_url")
-    @commands.check_any(commands.has_permissions(administrator=True), 
-                        commands.has_permissions(manage_guild=True))
-    async def add_gform_url(self, ctx: commands.Context, url: str):
+    @app_commands.command(name="add_gform_url", description="Add or update Google Form URL for the guild.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def add_gform_url(self, interaction: discord.Interaction, url: str):
         """
         Add/update Google Form URL for the guild.
 
@@ -129,46 +128,43 @@ class GoogleFormManager(commands.Cog):
         /add_gform_url https://forms.gle/abc123def456
         """
         if not url.startswith(("https://docs.google.com/forms/", "https://forms.gle/")):
-            await ctx.send("❌ That doesn't look like a Google Form link.")
+            await interaction.response.send_message("❌ That doesn't look like a Google Form link.", ephemeral=True)
             return
 
-        success = db.upsert_guild_form_url(ctx.guild.id, url)
-        tz = db.upsert_timezone(ctx.guild.id)
-        await ctx.send("✅ Google Form URL saved!" if success and tz else "⚠️ Database error")
+        success = db.upsert_guild_form_url(interaction.guild.id, url)
+        tz = db.upsert_timezone(interaction.guild.id)
+        await interaction.response.send_message("✅ Google Form URL saved!" if success and tz else "⚠️ Database error")
 
 
-    @commands.command(name="delete_gform_url")
-    @commands.check_any(commands.has_permissions(administrator=True), 
-                        commands.has_permissions(manage_guild=True))
-    async def delete_gform_url(self, ctx: commands.Context):
+    @app_commands.command(name="delete_gform_url", description="Remove Google Form URL from the guild.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def delete_gform_url(self, interaction: discord.Interaction):
         """
         Remove Google Form URL from the guild.
 
         Example:
         /delete_gform_url
         """
-        success = db.delete_guild_form_url(ctx.guild.id)
-        await ctx.send("🗑️ URL deleted" if success else "No URL set" if db.get_guild_form_url(ctx.guild.id) is None else "⚠️ Error")
+        success = db.delete_guild_form_url(interaction.guild.id)
+        await interaction.response.send_message("🗑️ URL deleted" if success else "No URL set" if db.get_guild_form_url(interaction.guild.id) is None else "⚠️ Error")
 
 
-    @commands.command(name="list_gform_url")
-    @commands.check_any(commands.has_permissions(administrator=True), 
-                        commands.has_permissions(manage_guild=True))
-    async def list_gform_url(self, ctx: commands.Context):
+    @app_commands.command(name="list_gform_url", description="List current Google Form URL for the guild.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def list_gform_url(self, interaction: discord.Interaction):
         """
         List current Google Form URL for the guild.
 
         Example:
         /list_gform_url
         """
-        form_url = db.get_guild_form_url(ctx.guild.id)
-        await ctx.send(f"Current URL: {form_url}" if form_url else "No URL configured")
+        form_url = db.get_guild_form_url(interaction.guild.id)
+        await interaction.response.send_message(f"Current URL: {form_url}" if form_url else "No URL configured")
         
         
-    @commands.command(name="set_attendance_time")
-    @commands.check_any(commands.has_permissions(administrator=True),
-                        commands.has_permissions(manage_guild=True))
-    async def set_attendance_time(self, ctx: commands.Context, schedule: str):
+    @app_commands.command(name="set_attendance_time", description="Set the weekly attendance window. Format: <day>/<HH:MM>-<HH:MM>")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def set_attendance_time(self, interaction: discord.Interaction, schedule: str):
         """
         Set the weekly attendance window.
         Format: <day>/<HH:MM>-<HH:MM>
@@ -186,8 +182,8 @@ class GoogleFormManager(commands.Cog):
         )
         m = re.match(pattern, schedule)
         if not m:
-            return await ctx.send(
-                "❌ Invalid format! Use `day/HH:MM-HH:MM`, e.g. `3/14:30-15:30`."
+            return await interaction.response.send_message(
+                "❌ Invalid format! Use `day/HH:MM-HH:MM`, e.g. `3/14:30-15:30`.", ephemeral=True
             )
 
         # Extract and validate
@@ -196,13 +192,13 @@ class GoogleFormManager(commands.Cog):
         h2, m2 = int(m.group('h2')), int(m.group('m2'))
 
         if not (0 <= h1 < 24 and 0 <= m1 < 60 and 0 <= h2 < 24 and 0 <= m2 < 60):
-            return await ctx.send("❌ Hours must be 0-23 and minutes 0-59.")
+            return await interaction.response.send_message("❌ Hours must be 0-23 and minutes 0-59.", ephemeral=True)
 
         # Ensure start < end
         start = time(hour=h1, minute=m1)
         end   = time(hour=h2, minute=m2)
         if start >= end:
-            return await ctx.send("❌ End time must be after start time.")
+            return await interaction.response.send_message("❌ End time must be after start time.", ephemeral=True)
 
         # Normalize day
         weekdays = {
@@ -212,20 +208,20 @@ class GoogleFormManager(commands.Cog):
         try:
             day = int(day_raw) if day_raw.isdigit() else weekdays[day_raw.lower()]
         except (ValueError, KeyError):
-            return await ctx.send("❌ Day must be 1-7 or a weekday name (e.g. Monday).")
+            return await interaction.response.send_message("❌ Day must be 1-7 or a weekday name (e.g. Monday).", ephemeral=True)
         
         if not (1 <= day <= 7):
-            return await ctx.send("❌ Day number must be between 1 and 7.")
+            return await interaction.response.send_message("❌ Day number must be between 1 and 7.", ephemeral=True)
 
         # Save to DB
         success = db.upsert_attendance_window(
-            guild_id=ctx.guild.id,
+            guild_id=interaction.guild.id,
             day=day,
             start_hour=h1, start_minute=m1,
             end_hour=h2,   end_minute=m2
         )
         if not success:
-            return await ctx.send("⚠️ Failed to save attendance Time. Please try again.")
+            return await interaction.response.send_message("⚠️ Failed to save attendance Time. Please try again.", ephemeral=True)
 
         # Confirm back to user
         # capitalize weekday name if given, else map number back
@@ -233,25 +229,24 @@ class GoogleFormManager(commands.Cog):
             list(weekdays.keys())[list(weekdays.values()).index(day)].capitalize()
             if day in weekdays.values() else f"Day {day}"
         )
-        await ctx.send(
+        await interaction.response.send_message(
             f"✅ Attendance Time set for **{display_day}** from **{h1:02d}:{m1:02d}** "
             f"to **{h2:02d}:{m2:02d}**."
         )
 
 
-    @commands.command(name="show_attendance_time")
-    @commands.check_any(commands.has_permissions(administrator=True),
-                        commands.has_permissions(manage_guild=True))
-    async def show_attendance_time(self, ctx: commands.Context):
+    @app_commands.command(name="show_attendance_time", description="Show the current attendance window for the server.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def show_attendance_time(self, interaction: discord.Interaction):
         """
         Show the current attendance window for the server.
 
         Example:
         /show_attendance_time
         """
-        record = db.get_attendance_window(ctx.guild.id)
+        record = db.get_attendance_window(interaction.guild.id)
         if not record or record.get("day") is None:
-            return await ctx.send("❌ Attendance time has not been set yet.")
+            return await interaction.response.send_message("❌ Attendance time has not been set yet.", ephemeral=True)
 
         weekdays = {
             1: 'Monday', 2: 'Tuesday', 3: 'Wednesday',
@@ -265,31 +260,29 @@ class GoogleFormManager(commands.Cog):
         end_m = record["end_minute"]
 
         display_day = weekdays.get(day, f"Day {day}")
-        await ctx.send(
+        await interaction.response.send_message(
             f"📅 Attendance Time **{display_day}**: "
             f"{start_h:02d}:{start_m:02d} - {end_h:02d}:{end_m:02d}"
         )
 
-    @commands.command(name="delete_attendance_time")
-    @commands.check_any(commands.has_permissions(administrator=True),
-                        commands.has_permissions(manage_guild=True))
-    async def delete_attendance_time(self, ctx: commands.Context):
+    @app_commands.command(name="delete_attendance_time", description="Delete the attendance time configuration.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def delete_attendance_time(self, interaction: discord.Interaction):
         """
         Delete the attendance time configuration.
 
         Example:
         /delete_attendance_time
         """
-        success = db.delete_attendance_window(ctx.guild.id)
+        success = db.delete_attendance_window(interaction.guild.id)
         if not success:
-            return await ctx.send("⚠️ No attendance Time found.")
-        await ctx.send(f"🗑️ Attendance Time has been deleted.")
+            return await interaction.response.send_message("⚠️ No attendance Time found.", ephemeral=True)
+        await interaction.response.send_message(f"🗑️ Attendance Time has been deleted.")
         
     
-    @commands.command(name="set_timezone")
-    @commands.check_any(commands.has_permissions(administrator=True),
-                        commands.has_permissions(manage_guild=True))
-    async def set_timezone(self, ctx: commands.Context, offset: str):
+    @app_commands.command(name="set_timezone", description="Set the timezone offset for the guild. Range: -12 to +14")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def set_timezone(self, interaction: discord.Interaction, offset: str):
         """
         Set the timezone offset for the guild.
         Range: -12 to +14
@@ -304,34 +297,32 @@ class GoogleFormManager(commands.Cog):
             if not -12 <= offset_int <= 14:
                 raise ValueError
         except ValueError:
-            return await ctx.send("❌ Invalid timezone offset. Please enter a number between -12 and +14.")
+            return await interaction.response.send_message("❌ Invalid timezone offset. Please enter a number between -12 and +14.", ephemeral=True)
 
-        success = db.upsert_timezone(ctx.guild.id, offset_int)
-        await ctx.send(f"✅ Timezone offset saved as UTC{offset_int:+}" if success else "⚠️ Failed to save timezone.")
+        success = db.upsert_timezone(interaction.guild.id, offset_int)
+        await interaction.response.send_message(f"✅ Timezone offset saved as UTC{offset_int:+}" if success else "⚠️ Failed to save timezone.")
     
 
-    @commands.command(name="show_timezone")
-    @commands.check_any(commands.has_permissions(administrator=True),
-                        commands.has_permissions(manage_guild=True))
-    async def show_timezone(self, ctx: commands.Context):
+    @app_commands.command(name="show_timezone", description="Show the timezone offset for the guild.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def show_timezone(self, interaction: discord.Interaction):
         """
         Show the timezone offset for the guild.
         
         Example:
         /show_timezone
         """
-        data = db.get_timezone(ctx.guild.id)
+        data = db.get_timezone(interaction.guild.id)
         if data and data.get("time_delta") is not None:
             time_delta = data["time_delta"]
-            await ctx.send(f"✅ Timezone offset saved as UTC{time_delta:+d}")
+            await interaction.response.send_message(f"✅ Timezone offset saved as UTC{time_delta:+d}")
         else:
-            await ctx.send("⚠️ No timezone offset has been set for this server.")
+            await interaction.response.send_message("⚠️ No timezone offset has been set for this server.")
             
             
-    @commands.command(name="help")
-    @commands.check_any(commands.has_permissions(administrator=True), 
-                        commands.has_permissions(manage_guild=True))
-    async def help(self, ctx: commands.Context):
+    @app_commands.command(name="help", description="Show all available bot commands and setup instructions.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def help(self, interaction: discord.Interaction):
         """
         Sends Google Form setup instructions and a formatted list of all available bot commands and their usage examples.
         This command is restricted to users with administrator or manage_guild permissions.
@@ -378,5 +369,5 @@ class GoogleFormManager(commands.Cog):
             "```"
         )
         # Send setup instructions first, then the help message
-        await ctx.send(setup_instructions)
-        await ctx.send(help_text)
+        await interaction.response.send_message(setup_instructions, ephemeral=True)
+        await interaction.followup.send(help_text, ephemeral=True)

@@ -5,6 +5,7 @@ import json
 import requests
 import logging
 from discord.ext import commands
+from discord import app_commands
 from utils.database import DatabaseHandler
 from datetime import time
 

@@ -117,6 +117,13 @@ class GoogleForm_Url_Handler:
 
 
 class GoogleFormManager(commands.Cog):
+    async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        # Permission error handler for all app commands in this Cog
+        if isinstance(error, app_commands.errors.MissingPermissions):
+            return await interaction.response.send_message("⚠️ No Administrator permission", ephemeral=True)
+        # Optionally handle other errors or re-raise
+        raise error
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
@@ -135,7 +142,7 @@ class GoogleFormManager(commands.Cog):
 
         success = db.upsert_guild_form_url(interaction.guild.id, url)
         tz = db.upsert_timezone(interaction.guild.id)
-        await interaction.response.send_message("✅ Google Form URL saved!" if success and tz else "⚠️ Database error")
+        await interaction.response.send_message("✅ Google Form URL saved!" if success and tz else "⚠️ Database error", ephemeral=True)
 
 
     @app_commands.command(name="delete_gform_url", description="Remove Google Form URL from the guild.")
@@ -148,7 +155,7 @@ class GoogleFormManager(commands.Cog):
         /delete_gform_url
         """
         success = db.delete_guild_form_url(interaction.guild.id)
-        await interaction.response.send_message("🗑️ URL deleted" if success else "No URL set" if db.get_guild_form_url(interaction.guild.id) is None else "⚠️ Error")
+        await interaction.response.send_message("🗑️ URL deleted" if success else "No URL set" if db.get_guild_form_url(interaction.guild.id) is None else "⚠️ Error", ephemeral=True)
 
 
     @app_commands.command(name="list_gform_url", description="List current Google Form URL for the guild.")
@@ -161,7 +168,7 @@ class GoogleFormManager(commands.Cog):
         /list_gform_url
         """
         form_url = db.get_guild_form_url(interaction.guild.id)
-        await interaction.response.send_message(f"Current URL: {form_url}" if form_url else "No URL configured")
+        await interaction.response.send_message(f"Current URL: {form_url}" if form_url else "No URL configured", ephemeral=True)
         
         
     @app_commands.command(name="set_attendance_time", description="Set the weekly attendance window. Format: <day>/<HH:MM>-<HH:MM>")
@@ -233,7 +240,8 @@ class GoogleFormManager(commands.Cog):
         )
         await interaction.response.send_message(
             f"✅ Attendance Time set for **{display_day}** from **{h1:02d}:{m1:02d}** "
-            f"to **{h2:02d}:{m2:02d}**."
+            f"to **{h2:02d}:{m2:02d}**.",
+            ephemeral=True
         )
 
 
@@ -264,7 +272,8 @@ class GoogleFormManager(commands.Cog):
         display_day = weekdays.get(day, f"Day {day}")
         await interaction.response.send_message(
             f"📅 Attendance Time **{display_day}**: "
-            f"{start_h:02d}:{start_m:02d} - {end_h:02d}:{end_m:02d}"
+            f"{start_h:02d}:{start_m:02d} - {end_h:02d}:{end_m:02d}",
+            ephemeral=True
         )
 
     @app_commands.command(name="delete_attendance_time", description="Delete the attendance time configuration.")
@@ -279,7 +288,7 @@ class GoogleFormManager(commands.Cog):
         success = db.delete_attendance_window(interaction.guild.id)
         if not success:
             return await interaction.response.send_message("⚠️ No attendance Time found.", ephemeral=True)
-        await interaction.response.send_message(f"🗑️ Attendance Time has been deleted.")
+        await interaction.response.send_message(f"🗑️ Attendance Time has been deleted.", ephemeral=True)
         
     
     @app_commands.command(name="set_timezone", description="Set the timezone offset for the guild. Range: -12 to +14")
@@ -302,7 +311,7 @@ class GoogleFormManager(commands.Cog):
             return await interaction.response.send_message("❌ Invalid timezone offset. Please enter a number between -12 and +14.", ephemeral=True)
 
         success = db.upsert_timezone(interaction.guild.id, offset_int)
-        await interaction.response.send_message(f"✅ Timezone offset saved as UTC{offset_int:+}" if success else "⚠️ Failed to save timezone.")
+        await interaction.response.send_message(f"✅ Timezone offset saved as UTC{offset_int:+}" if success else "⚠️ Failed to save timezone.", ephemeral=True)
     
 
     @app_commands.command(name="show_timezone", description="Show the timezone offset for the guild.")
@@ -317,9 +326,9 @@ class GoogleFormManager(commands.Cog):
         data = db.get_timezone(interaction.guild.id)
         if data and data.get("time_delta") is not None:
             time_delta = data["time_delta"]
-            await interaction.response.send_message(f"✅ Timezone offset saved as UTC{time_delta:+d}")
+            await interaction.response.send_message(f"✅ Timezone offset saved as UTC{time_delta:+d}", ephemeral=True)
         else:
-            await interaction.response.send_message("⚠️ No timezone offset has been set for this server.")
+            await interaction.response.send_message("⚠️ No timezone offset has been set for this server.", ephemeral=True)
             
             
     @app_commands.command(name="help", description="Show all available bot commands and setup instructions.")
@@ -335,7 +344,7 @@ class GoogleFormManager(commands.Cog):
         # Google Form setup instructions
         setup_instructions = (
             "```\n"
-            "**How to Set Up Google Form for Attendance:**\n"
+            "📜 How to Set Up Google Form for Attendance:\n"
             "1. Create a Google Form with one text field for the name.\n"
             "2. Get the form URL (either the full URL or the shortened forms.gle link).\n"
             "3. Use the `/add_gform_url` command with your form URL.\n"

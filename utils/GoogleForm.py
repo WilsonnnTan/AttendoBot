@@ -126,7 +126,7 @@ class GoogleFormManager(commands.Cog):
         Add/update Google Form URL for the guild.
 
         Example:
-        !add_gform_url https://forms.gle/abc123def456
+        /add_gform_url https://forms.gle/abc123def456
         """
         if not url.startswith(("https://docs.google.com/forms/", "https://forms.gle/")):
             await ctx.send("❌ That doesn't look like a Google Form link.")
@@ -145,7 +145,7 @@ class GoogleFormManager(commands.Cog):
         Remove Google Form URL from the guild.
 
         Example:
-        !delete_gform_url
+        /delete_gform_url
         """
         success = db.delete_guild_form_url(ctx.guild.id)
         await ctx.send("🗑️ URL deleted" if success else "No URL set" if db.get_guild_form_url(ctx.guild.id) is None else "⚠️ Error")
@@ -159,7 +159,7 @@ class GoogleFormManager(commands.Cog):
         List current Google Form URL for the guild.
 
         Example:
-        !list_gform_url
+        /list_gform_url
         """
         form_url = db.get_guild_form_url(ctx.guild.id)
         await ctx.send(f"Current URL: {form_url}" if form_url else "No URL configured")
@@ -174,8 +174,8 @@ class GoogleFormManager(commands.Cog):
         Format: <day>/<HH:MM>-<HH:MM>
 
         Example:
-        !set_attendance_time Friday/08:00-09:00
-        !set_attendance_time 5/14:00-15:00
+        /set_attendance_time Friday/08:00-09:00
+        /set_attendance_time 5/14:00-15:00
         """
         pattern = (
             r'^(?P<day>\d{1}|[A-Za-z]+)'   
@@ -247,7 +247,7 @@ class GoogleFormManager(commands.Cog):
         Show the current attendance window for the server.
 
         Example:
-        !show_attendance_time
+        /show_attendance_time
         """
         record = db.get_attendance_window(ctx.guild.id)
         if not record or record.get("day") is None:
@@ -278,7 +278,7 @@ class GoogleFormManager(commands.Cog):
         Delete the attendance time configuration.
 
         Example:
-        !delete_attendance_time
+        /delete_attendance_time
         """
         success = db.delete_attendance_window(ctx.guild.id)
         if not success:
@@ -295,9 +295,9 @@ class GoogleFormManager(commands.Cog):
         Range: -12 to +14
 
         Example:
-        !set_timezone +7
-        !set_timezone -5
-        !set_timezone 0
+        /set_timezone +7
+        /set_timezone -5
+        /set_timezone 0
         """
         try:
             offset_int = int(offset.replace("+", ""))
@@ -318,7 +318,7 @@ class GoogleFormManager(commands.Cog):
         Show the timezone offset for the guild.
         
         Example:
-        !show_timezone
+        /show_timezone
         """
         data = db.get_timezone(ctx.guild.id)
         if data and data.get("time_delta") is not None:
@@ -333,38 +333,50 @@ class GoogleFormManager(commands.Cog):
                         commands.has_permissions(manage_guild=True))
     async def help(self, ctx: commands.Context):
         """
-        Sends a formatted list of all available bot commands and their usage examples.
+        Sends Google Form setup instructions and a formatted list of all available bot commands and their usage examples.
         This command is restricted to users with administrator or manage_guild permissions.
 
         Args:
             ctx (commands.Context): The context in which the command was invoked.
         """
+        # Google Form setup instructions
+        setup_instructions = (
+            "```\n"
+            "**How to Set Up Google Form for Attendance:**\n"
+            "1. Create a Google Form with one text field for the name.\n"
+            "2. Get the form URL (either the full URL or the shortened forms.gle link).\n"
+            "3. Use the `/add_gform_url` command with your form URL.\n"
+            "4. The bot will automatically handle form submissions for attendance.\n"
+            "```"
+        )
         # Multi-line string containing all commands and usage examples for the bot.
         help_text = (
             "```\n"
             "📜 Available Commands:\n"
-            "1. !add_gform_url <link>\n"
-            "   Example: !add_gform_url https://forms.gle/abc123def456\n\n"
-            "2. !delete_gform_url\n"
-            "   Example: !delete_gform_url\n\n"
-            "3. !list_gform_url\n"
-            "   Example: !list_gform_url\n\n"
-            "4. !hadir\n"
-            "   Example: !hadir\n\n"
-            "5. !set_attendance_time <day>/<HH:MM>-<HH:MM>\n"
-            "   Example: !set_attendance_time Friday/08:00-09:00\n"
-            "   Example: !set_attendance_time 5/14:00-15:00\n\n"
-            "6. !show_attendance_time\n"
-            "   Example: !show_attendance_time\n\n"
-            "7. !delete_attendance_time\n"
-            "   Example: !delete_attendance_time\n\n"
-            "8. !set_timezone <delta>\n"
-            "   Set the time difference from UTC (default: +7 for Jakarta Time Zone)\n"
-            "   Example: !set_timezone -5\n"
-            "   Example: !set_timezone 0\n\n"
-            "9. !show_timezone\n"
-            "   Example: !show_timezone\n"
+            "1. /add_gform_url <link>\n"
+            "   Example: /add_gform_url https://forms.gle/abc123def456\n\n"
+            "2. /delete_gform_url\n"
+            "   Example: /delete_gform_url\n\n"
+            "3. /list_gform_url\n"
+            "   Example: /list_gform_url\n\n"
+            "4. /hadir\n"
+            "   Example: /hadir\n\n"
+            "5. /set_attendance_time <day>/<HH:MM>-<HH:MM>\n"
+            "   Example: /set_attendance_time Friday/08:00-09:00\n"
+            "   Example: /set_attendance_time 5/14:00-15:00\n"
+            "   If not set, attendance can be marked anytime.\n\n"
+            "6. /show_attendance_time\n"
+            "   Example: /show_attendance_time\n\n"
+            "7. /delete_attendance_time\n"
+            "   Example: /delete_attendance_time\n\n"
+            "8. /set_timezone <delta>\n"
+            "   Set the time difference from UTC. If not set, UTC+7 (Jakarta) is used.\n"
+            "   Example: /set_timezone -5\n"
+            "   Example: /set_timezone 0\n\n"
+            "9. /show_timezone\n"
+            "   Example: /show_timezone\n"
             "```"
         )
-        # Send the help message as a code block for better readability.
+        # Send setup instructions first, then the help message
+        await ctx.send(setup_instructions)
         await ctx.send(help_text)

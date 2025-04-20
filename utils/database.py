@@ -95,6 +95,7 @@ class DatabaseHandler:
     def delete_guild_form_url(self, guild_id: int) -> bool:
         try:
             self._supabase.table("guilds").update({"form_url": None}).eq("guild_id", guild_id).execute()
+            self.delete_attendance_window(guild_id)
             return True
         except Exception as e:
             logger.error(f"Failed to delete guild form URL: {e}")

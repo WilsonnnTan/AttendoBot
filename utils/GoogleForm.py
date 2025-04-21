@@ -332,7 +332,6 @@ class GoogleFormManager(commands.Cog):
             
             
     @app_commands.command(name="help", description="Show all available bot commands and setup instructions.")
-    @app_commands.checks.has_permissions(administrator=True)
     async def help(self, interaction: discord.Interaction):
         """
         Sends Google Form setup instructions and a formatted list of all available bot commands and their usage examples.

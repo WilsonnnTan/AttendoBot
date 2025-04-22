@@ -137,7 +137,7 @@ class DatabaseHandler:
             logger.error(f"Update attendance failed: {e}")
             return False
 
-    def check_hadir(self, guild_id: int, user_id: int, form_url: str) -> bool:
+    def check_attendance(self, guild_id: int, user_id: int, form_url: str) -> bool:
         try:
             existing = self.get_attendance(guild_id, user_id, form_url)
             today = datetime.now(timezone.utc).date()

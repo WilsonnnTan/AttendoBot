@@ -1,5 +1,6 @@
 # Copyright (c) 2025 WilsonnnTan. All Rights Reserved.
 import re
+import asyncio
 import pytz
 import json
 import requests
@@ -140,8 +141,8 @@ class GoogleFormManager(commands.Cog):
             await interaction.response.send_message("❌ That doesn't look like a Google Form link.", ephemeral=True)
             return
 
-        success = db.upsert_guild_form_url(interaction.guild.id, url)
-        tz = db.upsert_timezone(interaction.guild.id)
+        success = await asyncio.to_thread(db.upsert_guild_form_url, interaction.guild.id, url)
+        tz = await asyncio.to_thread(db.upsert_timezone, interaction.guild.id)
         await interaction.response.send_message("✅ Google Form URL saved!" if success and tz else "⚠️ Database error", ephemeral=True)
 
 
@@ -154,8 +155,9 @@ class GoogleFormManager(commands.Cog):
         Example:
         /delete_gform_url
         """
-        success = db.delete_guild_form_url(interaction.guild.id)
-        await interaction.response.send_message("🗑️ URL deleted" if success else "No URL set" if db.get_guild_form_url(interaction.guild.id) is None else "⚠️ Error", ephemeral=True)
+        success = await asyncio.to_thread(db.delete_guild_form_url, interaction.guild.id)
+        form_url = await asyncio.to_thread(db.get_guild_form_url, interaction.guild.id)
+        await interaction.response.send_message("🗑️ URL deleted" if success else "No URL set" if form_url is None else "⚠️ Error", ephemeral=True)
 
 
     @app_commands.command(name="list_gform_url", description="List current Google Form URL for the guild.")
@@ -167,7 +169,7 @@ class GoogleFormManager(commands.Cog):
         Example:
         /list_gform_url
         """
-        form_url = db.get_guild_form_url(interaction.guild.id)
+        form_url = await asyncio.to_thread(db.get_guild_form_url, interaction.guild.id)
         await interaction.response.send_message(f"Current URL: {form_url}" if form_url else "No URL configured", ephemeral=True)
         
         
@@ -223,7 +225,7 @@ class GoogleFormManager(commands.Cog):
             return await interaction.response.send_message("❌ Day number must be between 1 and 7.", ephemeral=True)
 
         # Save to DB
-        success = db.upsert_attendance_window(
+        success = await asyncio.to_thread(db.upsert_attendance_window,
             guild_id=interaction.guild.id,
             day=day,
             start_hour=h1, start_minute=m1,
@@ -254,7 +256,7 @@ class GoogleFormManager(commands.Cog):
         Example:
         /show_attendance_time
         """
-        record = db.get_attendance_window(interaction.guild.id)
+        record = await asyncio.to_thread(db.get_attendance_window, interaction.guild.id)
         if not record or record.get("day") is None:
             return await interaction.response.send_message("❌ Attendance time has not been set yet.", ephemeral=True)
 
@@ -285,7 +287,7 @@ class GoogleFormManager(commands.Cog):
         Example:
         /delete_attendance_time
         """
-        success = db.delete_attendance_window(interaction.guild.id)
+        success = await asyncio.to_thread(db.delete_attendance_window, interaction.guild.id)
         if not success:
             return await interaction.response.send_message("⚠️ No attendance Time found.", ephemeral=True)
         await interaction.response.send_message(f"🗑️ Attendance Time has been deleted.", ephemeral=True)
@@ -310,7 +312,7 @@ class GoogleFormManager(commands.Cog):
         except ValueError:
             return await interaction.response.send_message("❌ Invalid timezone offset. Please enter a number between -12 and +14.", ephemeral=True)
 
-        success = db.upsert_timezone(interaction.guild.id, offset_int)
+        success = await asyncio.to_thread(db.upsert_timezone, interaction.guild.id, offset_int)
         await interaction.response.send_message(f"✅ Timezone offset saved as UTC{offset_int:+}" if success else "⚠️ Failed to save timezone.", ephemeral=True)
     
 
@@ -323,7 +325,7 @@ class GoogleFormManager(commands.Cog):
         Example:
         /show_timezone
         """
-        data = db.get_timezone(interaction.guild.id)
+        data = await asyncio.to_thread(db.get_timezone, interaction.guild.id)
         if data and data.get("time_delta") is not None:
             time_delta = data["time_delta"]
             await interaction.response.send_message(f"✅ Timezone offset saved as UTC{time_delta:+d}", ephemeral=True)

@@ -39,7 +39,6 @@ class Attendance(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self._lock = asyncio.Lock()
 
     # "Hadir" is Indonesian for "Present" (used for marking attendance).
     @app_commands.command(name="hadir", description="Mark your daily attendance")
@@ -95,9 +94,8 @@ class Attendance(commands.Cog):
                 )
 
             # Submit to form
-            async with self._lock:
-                submission_data = {entry_id_name: user.display_name}
-                submit_success = await form_handler.submit_response(form_url, submission_data)
+            submission_data = {entry_id_name: user.display_name}
+            submit_success = await form_handler.submit_response(form_url, submission_data)
 
             if submit_success:
                 return await interaction.followup.send(

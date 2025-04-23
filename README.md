@@ -1,4 +1,6 @@
-# Discord Attendance Bot
+# Attendobot
+
+![version](https://img.shields.io/badge/version-0.2.0-blue)
 
 A Discord bot that automates attendance tracking using Google Forms. The bot allows server administrators to configure attendance windows, manage Google Form URLs, and lets users mark their attendance with a simple command.
 

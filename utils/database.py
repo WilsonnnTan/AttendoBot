@@ -10,7 +10,7 @@ from uuid import uuid4
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 import httpx
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 import asyncio
 
 # Load environment variables from .env file
@@ -76,30 +76,30 @@ class DatabaseHandler:
                 return None
                 
     # Guild form URL operations
-    async def upsert_guild_form_url(self, guild_id: int, url: str) -> bool:
+    async def upsert_guild_form_url(self, guild_id: int, url: str, entry_id_name: str) -> bool:
         """
         Upsert a guild's form URL in the database.
         """
-        data = [{"guild_id": guild_id, "form_url": url}]
+        data = [{"guild_id": guild_id, "form_url": url, "entry_id_name": entry_id_name}]
         headers = {"Prefer": "resolution=merge-duplicates"}
         params = {"on_conflict": "guild_id"}
         resp = await self._request("POST", "guilds", json=data, headers=headers, params=params)
         return resp is not None
 
-    async def get_guild_form_url(self, guild_id: int) -> Optional[str]:
-        resp = await self._request("GET", "guilds", params={"guild_id": f"eq.{guild_id}", "select": "form_url"})
+    async def get_guild_form_url_and_entry_id_name(self, guild_id: int) -> Tuple[Optional[str], Optional[str]]:
+        resp = await self._request("GET", "guilds", params={"guild_id": f"eq.{guild_id}", "select": "form_url,entry_id_name"})
         if resp and len(resp) > 0:
-            return resp[0].get("form_url")
-        return None
+            return (resp[0].get("form_url"), resp[0].get("entry_id_name"))
+        return None, None
     
-    async def delete_guild_form_url(self, guild_id: int) -> bool:
-        data = {"form_url": None}
+    async def delete_guild_form_url_and_entry_id_name(self, guild_id: int) -> bool:
+        data = {"form_url": None, "entry_id_name": None}
         resp = await self._request("PATCH", "guilds", json=data, params={"guild_id": f"eq.{guild_id}"})
         await self.delete_attendance_window(guild_id)
         return resp is not None
 
     # Attendance operations
-    async def get_attendance(self, guild_id: int, user_id: int, form_url: str):
+    async def get_attendance(self, guild_id: int, user_id: int, form_url: str) -> Optional[Dict[str, Any]]:
         resp = await self._request("GET", "attendances", params={
             "guild_id": f"eq.{guild_id}", "user_id": f"eq.{user_id}", "form_url": f"eq.{form_url}"})
         return resp[0] if resp else None
@@ -150,14 +150,14 @@ class DatabaseHandler:
         resp = await self._request("POST", "guilds", json=data, headers=headers, params=params)
         return resp is not None
         
-    async def get_attendance_window(self, guild_id: int):
+    async def get_attendance_window(self, guild_id: int) -> Optional[Dict[str, Any]]:
         resp = await self._request("GET", "guilds", params={
             "guild_id": f"eq.{guild_id}",
             "select": "day,start_hour,start_minute,end_hour,end_minute"
         })
         return resp[0] if resp else None
         
-    async def delete_attendance_window(self, guild_id: int):
+    async def delete_attendance_window(self, guild_id: int) -> bool:
         payload = {
             "day": None,
             "start_hour": None,
@@ -175,6 +175,6 @@ class DatabaseHandler:
         resp = await self._request("POST", "Timezone", json=data, headers=headers, params=params)
         return resp is not None
 
-    async def get_timezone(self, guild_id: int):
+    async def get_timezone(self, guild_id: int) -> Optional[Dict[str, Any]]:
         resp = await self._request("GET", "Timezone", params={"guild_id": f"eq.{guild_id}", "select": "time_delta"})
         return resp[0] if resp else None

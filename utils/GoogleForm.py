@@ -1,6 +1,7 @@
 # Copyright (c) 2025 WilsonnnTan. All Rights Reserved.
 import re
 import asyncio
+from typing import Optional, Tuple
 import pytz
 import json
 import httpx
@@ -31,56 +32,75 @@ class GoogleForm_Url_Handler:
         max_conc = int(os.getenv("GOOGLEFORM_MAX_CONCURRENCY", 10))
         self._semaphore = asyncio.Semaphore(max_conc)
 
-    async def extract_urls(self, url: str) -> tuple[str | None, str | None]:
+    async def extract_url(self, form_url: str) -> Tuple[Optional[str], Optional[str]]:
         """
         Extracts both 'viewform' and 'formResponse' URLs from a Google Form link.
         """
         try:
             # Expand shortened URLs
-            if "forms.gle" in url:
+            if "forms.gle" in form_url:
                 async with self._semaphore:
-                    response = await self._client.get(url, follow_redirects=True)
-                url = str(response.url)
+                    response = await self._client.get(form_url, follow_redirects=True)
+                err_msg = self._check_gform_response(response)
+                if err_msg:
+                    return None, err_msg
+                form_url = str(response.url)
 
             # Extract form ID
-            match = re.search(r'/d/e/([a-zA-Z0-9_-]+)/viewform', url)
+            match = re.search(r'/d/e/([a-zA-Z0-9_-]+)(?:/|$)', form_url)
             if match:
                 form_id = match.group(1)
-                return (
-                    f"https://docs.google.com/forms/d/e/{form_id}/viewform",
-                    f"https://docs.google.com/forms/d/e/{form_id}/formResponse"
-                )
+                return f"https://docs.google.com/forms/d/e/{form_id}", None
             self.logger.warning("Couldn't find Google Form ID in URL")
-            return None, None
+            return None, "❌ Could not find a valid Google Form ID in the URL."
         except Exception as e:
             self.logger.error(f"URL extraction failed: {e}")
-            return None, None
+            return None, "❌ An unexpected error occurred while processing the form URL."
 
-    async def submit_response(self, post_url: str, data: dict) -> bool:
+    def _check_gform_response(self, response: httpx.Response) -> Optional[str]:
+        """
+        Checks Google Form HTTP response for common errors (404, non-200) and returns a user-friendly message if needed.
+        Returns None if the response is OK.
+        """
+        if response.status_code == 404:
+            return "❌ The Google Form URL doesn't exist. Please check the link."
+        if response.status_code != 200:
+            logger.warning(f"Status code: {response.status_code}")
+            return f"⚠️ Couldn't access the Google Form. 🔒 This Google Form is private."
+        return None
+
+    async def submit_response(self, form_url: str, data: dict) -> bool:
         """
         Submits data to Google Form.
         """
         try:
+            form_url += "/formResponse"
             async with self._semaphore:
-                response = await self._client.post(post_url, data=data, timeout=10)
+                response = await self._client.post(form_url, data=data, timeout=10)
             return response.status_code == 200 or response.status_code == 302
         except httpx.RequestError as e:
             self.logger.error(f"Submission failed: {e}")
             return False
 
-    async def fetch_form_data(self, view_url: str) -> list | dict | None:
+    async def fetch_form_data(self, form_url: str) -> tuple[list | dict | None, str | None]:
         """
         Fetches hidden configuration data from Google Form.
         """
         try:
+            form_url += "/viewform"
             async with self._semaphore:
-                response = await self._client.get(view_url, timeout=15)
-            response.raise_for_status()
+                response = await self._client.get(form_url, timeout=15)
+            err_msg = self._check_gform_response(response)
+            if err_msg:
+                return None, err_msg
             match = re.search(r'FB_PUBLIC_LOAD_DATA_ = (.*?);', response.text, flags=re.S)
-            return json.loads(match.group(1))
+            if not match:
+                # No form data found, likely private or restricted
+                return None, "🔒 This Google Form is private, restricted, or not a valid attendance form."
+            return json.loads(match.group(1)), None
         except Exception as e:
             self.logger.error(f"Data fetch failed: {e}")
-            return None
+            return None, "❌ An unexpected error occurred while fetching the form data."
 
     @staticmethod
     def get_entry_ids(data: dict | list) -> iter:
@@ -114,6 +134,8 @@ class GoogleFormManager(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.form_url_handler = GoogleForm_Url_Handler()
+
 
     @app_commands.command(name="add_gform_url", description="Add or update Google Form URL for the guild.")
     @app_commands.checks.has_permissions(administrator=True)
@@ -127,10 +149,22 @@ class GoogleFormManager(commands.Cog):
         if not url.startswith(("https://docs.google.com/forms/", "https://forms.gle/")):
             await interaction.response.send_message("❌ That doesn't look like a Google Form link.", ephemeral=True)
             return
-
-        success = await db.upsert_guild_form_url(interaction.guild.id, url)
+        else:
+            extracted_url, error_reason = await self.form_url_handler.extract_url(url)
+            if not extracted_url:
+                await interaction.response.send_message(error_reason, ephemeral=True)
+                return
+            
+            form_data, error_reason = await self.form_url_handler.fetch_form_data(extracted_url)
+            if not form_data:
+                await interaction.response.send_message(error_reason, ephemeral=True)
+                return
+            
+            entry_ids = list(self.form_url_handler.get_entry_ids(form_data))
+            entry_id_name = f"entry.{entry_ids[0]}"
+            
+        success = await db.upsert_guild_form_url(interaction.guild.id, extracted_url, entry_id_name)
         tz = await db.upsert_timezone(interaction.guild.id)
-        logger.warning(f"Success: {success}, TZ: {tz}")
         await interaction.response.send_message("✅ Google Form URL saved!" if success and tz else "⚠️ Failed to save Google Form URL!", ephemeral=True)
 
 
@@ -143,9 +177,17 @@ class GoogleFormManager(commands.Cog):
         Example:
         /delete_gform_url
         """
-        success = await db.delete_guild_form_url(interaction.guild.id)
-        form_url = await db.get_guild_form_url(interaction.guild.id)
-        await interaction.response.send_message("🗑️ URL deleted" if success else "No URL set" if form_url is None else "⚠️ Error", ephemeral=True)
+        form_url, entry_id_name = await db.get_guild_form_url_and_entry_id_name(interaction.guild.id)
+        if not form_url:
+            return await interaction.response.send_message("⚠️ No URL set.", ephemeral=True)
+
+        success = await db.delete_guild_form_url_and_entry_id_name(interaction.guild.id)
+        if success:
+            message = "🗑️ URL deleted"
+        else:
+            message = "⚠️ Error"
+
+        await interaction.response.send_message(message, ephemeral=True)
 
 
     @app_commands.command(name="list_gform_url", description="List current Google Form URL for the guild.")
@@ -157,8 +199,8 @@ class GoogleFormManager(commands.Cog):
         Example:
         /list_gform_url
         """
-        form_url = await db.get_guild_form_url(interaction.guild.id)
-        await interaction.response.send_message(f"Current URL: {form_url}" if form_url else "No URL configured", ephemeral=True)
+        form_url, entry_id_name = await db.get_guild_form_url_and_entry_id_name(interaction.guild.id)
+        await interaction.response.send_message(f"Current URL: {form_url}/formResponse" if form_url else "No URL configured", ephemeral=True)
         
         
     @app_commands.command(name="set_attendance_time", description="Set the weekly attendance window. Format: <day>/<HH:MM>-<HH:MM>")
@@ -275,9 +317,12 @@ class GoogleFormManager(commands.Cog):
         Example:
         /delete_attendance_time
         """
+        record = await db.get_attendance_window(interaction.guild.id)
+        if not record:
+            return await interaction.response.send_message("⚠️ No attendance Time found.", ephemeral=True)
         success = await db.delete_attendance_window(interaction.guild.id)
         if not success:
-            return await interaction.response.send_message("⚠️ No attendance Time found.", ephemeral=True)
+            return await interaction.response.send_message("⚠️ Failed to delete attendance Time.", ephemeral=True)
         await interaction.response.send_message(f"🗑️ Attendance Time has been deleted.", ephemeral=True)
         
     

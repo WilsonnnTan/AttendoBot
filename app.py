@@ -48,7 +48,9 @@ class Attendance(commands.Cog):
         Command for users to mark their daily attendance.
         Checks time window, prevents duplicate attendance, and submits the user's name to the configured Google Form.
         """
-        await interaction.response.defer(thinking=True, ephemeral=True)  # Defer early to prevent timeout
+        # Defer early to prevent timeout
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        
         try:
             user = interaction.user
             guild = interaction.guild
@@ -58,7 +60,7 @@ class Attendance(commands.Cog):
                 )
 
             guild_id = guild.id
-            form_url = await db.get_guild_form_url(guild_id)
+            form_url, entry_id_name = await db.get_guild_form_url_and_entry_id_name(guild_id)
             tz = await db.get_timezone(guild_id)
             if not form_url:
                 return await interaction.followup.send(
@@ -82,7 +84,7 @@ class Attendance(commands.Cog):
 
                 if today != record["day"] or not (start <= current_time <= end):
                     return await interaction.followup.send(
-                        f"{user.mention} ❌ Attendance denied (You are late).", ephemeral=True
+                        f"{user.mention} ❌ Attendance denied (Attendance period has ended).", ephemeral=True
                     )
 
             # Check if already marked
@@ -94,11 +96,8 @@ class Attendance(commands.Cog):
 
             # Submit to form
             async with self._lock:
-                view_url, post_url = await form_handler.extract_urls(form_url)
-                form_data = await form_handler.fetch_form_data(view_url)
-                entry_ids = list(form_handler.get_entry_ids(form_data))
-                submission_data = {f"entry.{entry_ids[0]}": user.display_name}
-                submit_success = await form_handler.submit_response(post_url, submission_data)
+                submission_data = {entry_id_name: user.display_name}
+                submit_success = await form_handler.submit_response(form_url, submission_data)
 
             if submit_success:
                 return await interaction.followup.send(

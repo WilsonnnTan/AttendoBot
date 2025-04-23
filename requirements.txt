@@ -1,9 +1,10 @@
 discord.py==2.5.2
 python-dotenv
-requests
+httpx
+
 sqlalchemy
 alembic
 asyncio
-supabase
+
 psycopg2-binary
 pytz

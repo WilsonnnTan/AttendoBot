@@ -3,14 +3,15 @@ import re
 import asyncio
 import pytz
 import json
-import requests
+import httpx
 import logging
 import discord
 from discord.ext import commands
 from discord import app_commands
 from utils.database import DatabaseHandler
 from datetime import time
-
+import asyncio
+import os
 
 db = DatabaseHandler()
 
@@ -26,22 +27,20 @@ class GoogleForm_Url_Handler:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        
-    def extract_urls(self, url: str) -> tuple[str | None, str | None]:
+        self._client = httpx.AsyncClient()
+        max_conc = int(os.getenv("GOOGLEFORM_MAX_CONCURRENCY", 10))
+        self._semaphore = asyncio.Semaphore(max_conc)
+
+    async def extract_urls(self, url: str) -> tuple[str | None, str | None]:
         """
         Extracts both 'viewform' and 'formResponse' URLs from a Google Form link.
-        
-        Args:
-            url (str): Shortened or full Google Form URL
-            
-        Returns:
-            tuple: (view_url, post_url) or (None, None) on failure
         """
         try:
             # Expand shortened URLs
             if "forms.gle" in url:
-                response = requests.get(url, allow_redirects=True)
-                url = response.url
+                async with self._semaphore:
+                    response = await self._client.get(url, follow_redirects=True)
+                url = str(response.url)
 
             # Extract form ID
             match = re.search(r'/d/e/([a-zA-Z0-9_-]+)/viewform', url)
@@ -53,41 +52,29 @@ class GoogleForm_Url_Handler:
                 )
             self.logger.warning("Couldn't find Google Form ID in URL")
             return None, None
-            
         except Exception as e:
             self.logger.error(f"URL extraction failed: {e}")
             return None, None
 
-    def submit_response(self, post_url: str, data: dict) -> bool:
+    async def submit_response(self, post_url: str, data: dict) -> bool:
         """
         Submits data to Google Form.
-        
-        Args:
-            post_url (str): Form's submission endpoint
-            data (dict): Form data {field_id: value}
-            
-        Returns:
-            bool: True if successful
         """
         try:
-            response = requests.post(post_url, data=data, timeout=10)
-            return response.ok
-        except requests.RequestException as e:
+            async with self._semaphore:
+                response = await self._client.post(post_url, data=data, timeout=10)
+            return response.status_code == 200 or response.status_code == 302
+        except httpx.RequestError as e:
             self.logger.error(f"Submission failed: {e}")
             return False
 
-    def fetch_form_data(self, view_url: str) -> list | dict | None:
+    async def fetch_form_data(self, view_url: str) -> list | dict | None:
         """
         Fetches hidden configuration data from Google Form.
-        
-        Args:
-            view_url (str): Form's viewform URL
-            
-        Returns:
-            Parsed JSON data or None
         """
         try:
-            response = requests.get(view_url, timeout=15)
+            async with self._semaphore:
+                response = await self._client.get(view_url, timeout=15)
             response.raise_for_status()
             match = re.search(r'FB_PUBLIC_LOAD_DATA_ = (.*?);', response.text, flags=re.S)
             return json.loads(match.group(1))
@@ -141,9 +128,10 @@ class GoogleFormManager(commands.Cog):
             await interaction.response.send_message("❌ That doesn't look like a Google Form link.", ephemeral=True)
             return
 
-        success = await asyncio.to_thread(db.upsert_guild_form_url, interaction.guild.id, url)
-        tz = await asyncio.to_thread(db.upsert_timezone, interaction.guild.id)
-        await interaction.response.send_message("✅ Google Form URL saved!" if success and tz else "⚠️ Database error", ephemeral=True)
+        success = await db.upsert_guild_form_url(interaction.guild.id, url)
+        tz = await db.upsert_timezone(interaction.guild.id)
+        logger.warning(f"Success: {success}, TZ: {tz}")
+        await interaction.response.send_message("✅ Google Form URL saved!" if success and tz else "⚠️ Failed to save Google Form URL!", ephemeral=True)
 
 
     @app_commands.command(name="delete_gform_url", description="Remove Google Form URL from the guild.")
@@ -155,8 +143,8 @@ class GoogleFormManager(commands.Cog):
         Example:
         /delete_gform_url
         """
-        success = await asyncio.to_thread(db.delete_guild_form_url, interaction.guild.id)
-        form_url = await asyncio.to_thread(db.get_guild_form_url, interaction.guild.id)
+        success = await db.delete_guild_form_url(interaction.guild.id)
+        form_url = await db.get_guild_form_url(interaction.guild.id)
         await interaction.response.send_message("🗑️ URL deleted" if success else "No URL set" if form_url is None else "⚠️ Error", ephemeral=True)
 
 
@@ -169,7 +157,7 @@ class GoogleFormManager(commands.Cog):
         Example:
         /list_gform_url
         """
-        form_url = await asyncio.to_thread(db.get_guild_form_url, interaction.guild.id)
+        form_url = await db.get_guild_form_url(interaction.guild.id)
         await interaction.response.send_message(f"Current URL: {form_url}" if form_url else "No URL configured", ephemeral=True)
         
         
@@ -225,7 +213,7 @@ class GoogleFormManager(commands.Cog):
             return await interaction.response.send_message("❌ Day number must be between 1 and 7.", ephemeral=True)
 
         # Save to DB
-        success = await asyncio.to_thread(db.upsert_attendance_window,
+        success = await db.upsert_attendance_window(
             guild_id=interaction.guild.id,
             day=day,
             start_hour=h1, start_minute=m1,
@@ -256,7 +244,7 @@ class GoogleFormManager(commands.Cog):
         Example:
         /show_attendance_time
         """
-        record = await asyncio.to_thread(db.get_attendance_window, interaction.guild.id)
+        record = await db.get_attendance_window(interaction.guild.id)
         if not record or record.get("day") is None:
             return await interaction.response.send_message("❌ Attendance time has not been set yet.", ephemeral=True)
 
@@ -287,7 +275,7 @@ class GoogleFormManager(commands.Cog):
         Example:
         /delete_attendance_time
         """
-        success = await asyncio.to_thread(db.delete_attendance_window, interaction.guild.id)
+        success = await db.delete_attendance_window(interaction.guild.id)
         if not success:
             return await interaction.response.send_message("⚠️ No attendance Time found.", ephemeral=True)
         await interaction.response.send_message(f"🗑️ Attendance Time has been deleted.", ephemeral=True)
@@ -312,7 +300,7 @@ class GoogleFormManager(commands.Cog):
         except ValueError:
             return await interaction.response.send_message("❌ Invalid timezone offset. Please enter a number between -12 and +14.", ephemeral=True)
 
-        success = await asyncio.to_thread(db.upsert_timezone, interaction.guild.id, offset_int)
+        success = await db.upsert_timezone(interaction.guild.id, offset_int)
         await interaction.response.send_message(f"✅ Timezone offset saved as UTC{offset_int:+}" if success else "⚠️ Failed to save timezone.", ephemeral=True)
     
 
@@ -325,7 +313,7 @@ class GoogleFormManager(commands.Cog):
         Example:
         /show_timezone
         """
-        data = await asyncio.to_thread(db.get_timezone, interaction.guild.id)
+        data = await db.get_timezone(interaction.guild.id)
         if data and data.get("time_delta") is not None:
             time_delta = data["time_delta"]
             await interaction.response.send_message(f"✅ Timezone offset saved as UTC{time_delta:+d}", ephemeral=True)

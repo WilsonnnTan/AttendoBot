@@ -3,7 +3,7 @@
 SQLAlchemy ORM models for the Discord Attendance Bot database schema.
 Defines tables for guild configuration, attendance records, and timezone settings.
 """
-from sqlalchemy import Column, BigInteger, Text, DateTime, ForeignKey, PrimaryKeyConstraint, UniqueConstraint, Integer
+from sqlalchemy import Column, BigInteger, Text, DateTime, ForeignKey, PrimaryKeyConstraint, UniqueConstraint, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -20,6 +20,7 @@ class Guild(Base):
 
     guild_id = Column(BigInteger, primary_key=True)
     form_url = Column(Text, nullable=True)
+    entry_id_name = Column(String(30), nullable=True)
     day = Column(Integer, nullable=True)  # Day of the week for attendance (1=Monday, 7=Sunday)
     start_hour = Column(Integer, nullable=True)
     start_minute = Column(Integer, nullable=True)

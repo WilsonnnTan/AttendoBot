@@ -14,13 +14,12 @@
 
 ## Architecture Overview
 
-The Discord Attendance Bot is a modular Python application built on `discord.py`, using Google Forms for attendance collection and SQLAlchemy/Supabase for persistent storage. The bot restricts configuration commands to server admins for security.
+The Discord Attendance Bot is a modular Python application built on `discord.py`, using Google Forms for attendance collection and Supabase (via direct HTTP requests using httpx) for persistent storage. The bot restricts configuration commands to server admins for security. Concurrency for both database and Google Form operations is managed using asyncio semaphores, ensuring stability even under high load.
 
 **Key Components:**
-- `app.py`: Bot entry point and event loop.
-- `utils/GoogleForm.py`: Google Form integration and command implementations.
-- `utils/database.py`: Database handler for CRUD operations.
-- `schemas/models.py`: SQLAlchemy ORM models for the database.
+- `app.py`: Bot entry point, event loop, and core command registration.
+- `utils/GoogleForm.py`: Google Form integration, including URL extraction (performed when adding a form URL), data fetching, and attendance submission logic.
+- `utils/database.py`: Async database handler for all Supabase CRUD operations, using httpx and concurrency limits.
 
 ---
 
@@ -99,14 +98,13 @@ docker run --rm --env-file .env AttendoBot alembic upgrade head
 Create a `.env` file based on `.env.example`:
 
 ```env
-# Discord Bot Token (Required)
-DISCORD_TOKEN=your_discord_bot_token
-
-# Database Configuration
-DATABASE_URL=postgresql://username:password@localhost:5432/database_name
-
-# (Optional) Logging Level
+DISCORD_TOKEN="YOUR_DISCORD_TOKEN"
+SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
+SUPABASE_KEY="YOUR_SUPABASE_KEY"
+DATABASE_MIGRATION_URL="postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT.supabase.co:5432/postgres"
 LOG_LEVEL=WARNING
+GOOGLEFORM_MAX_CONCURRENCY="10"
+SUPABASE_MAX_CONCURRENCY="10"
 ```
 
 ---
@@ -114,11 +112,11 @@ LOG_LEVEL=WARNING
 ## Database Schema
 
 ### Tables
-- **guilds**: Stores guild (server) configuration, including Google Form URL and attendance window.
+- **guilds**: Stores guild (server) configuration, including Google Form URL, entry field ID, and attendance window.
 - **attendances**: Records each user's attendance per guild.
 - **Timezone**: Stores timezone offset per guild. Default is UTC+7 (Jakarta) if not set.
 
-See `schemas/models.py` for SQLAlchemy ORM definitions.
+Table creation and migrations are managed through Supabase and SQL scripts, not SQLAlchemy.
 
 ---
 

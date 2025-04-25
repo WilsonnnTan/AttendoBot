@@ -10,7 +10,7 @@ from uuid import uuid4
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 import httpx
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Any
 import asyncio
 
 # Load environment variables from .env file
@@ -36,21 +36,21 @@ class DatabaseHandler:
     _supabase_url: Optional[str] = None
     _supabase_key: Optional[str] = None
 
-    def __new__(cls):
+    def __new__(cls) -> 'DatabaseHandler':
         if cls._instance is None:
             cls._instance = super(DatabaseHandler, cls).__new__(cls)
             cls._initialize()
         return cls._instance
 
     @classmethod
-    def _initialize(cls):
+    def _initialize(cls) -> None:
         cls._supabase_url = os.getenv("SUPABASE_URL")
         cls._supabase_key = os.getenv("SUPABASE_KEY")
         cls._client = httpx.AsyncClient()
         max_concurrency = int(os.getenv("SUPABASE_MAX_CONCURRENCY", 10))
         cls._semaphore = asyncio.Semaphore(max_concurrency)
 
-    async def _request(self, method: str, path: str, **kwargs):
+    async def _request(self, method: str, path: str, **kwargs) -> Any:
         if not self._supabase_url or not self._supabase_key:
             logger.error("Supabase credentials not set.")
             raise RuntimeError("Supabase credentials not set.")
@@ -86,7 +86,7 @@ class DatabaseHandler:
         resp = await self._request("POST", "guilds", json=data, headers=headers, params=params)
         return resp is not None
 
-    async def get_guild_form_url_and_entry_id_name(self, guild_id: int) -> Tuple[Optional[str], Optional[str]]:
+    async def get_guild_form_url_and_entry_id_name(self, guild_id: int) -> tuple[Optional[str], Optional[str]]:
         resp = await self._request("GET", "guilds", params={"guild_id": f"eq.{guild_id}", "select": "form_url,entry_id_name"})
         if resp and len(resp) > 0:
             return (resp[0].get("form_url"), resp[0].get("entry_id_name"))
@@ -99,7 +99,7 @@ class DatabaseHandler:
         return resp is not None
 
     # Attendance operations
-    async def get_attendance(self, guild_id: int, user_id: int, form_url: str) -> Optional[Dict[str, Any]]:
+    async def get_attendance(self, guild_id: int, user_id: int, form_url: str) -> Optional[dict[str, Any]]:
         resp = await self._request("GET", "attendances", params={
             "guild_id": f"eq.{guild_id}", "user_id": f"eq.{user_id}", "form_url": f"eq.{form_url}"})
         return resp[0] if resp else None
@@ -150,7 +150,7 @@ class DatabaseHandler:
         resp = await self._request("POST", "guilds", json=data, headers=headers, params=params)
         return resp is not None
         
-    async def get_attendance_window(self, guild_id: int) -> Optional[Dict[str, Any]]:
+    async def get_attendance_window(self, guild_id: int) -> Optional[dict[str, Any]]:
         resp = await self._request("GET", "guilds", params={
             "guild_id": f"eq.{guild_id}",
             "select": "day,start_hour,start_minute,end_hour,end_minute"
@@ -175,6 +175,6 @@ class DatabaseHandler:
         resp = await self._request("POST", "Timezone", json=data, headers=headers, params=params)
         return resp is not None
 
-    async def get_timezone(self, guild_id: int) -> Optional[Dict[str, Any]]:
+    async def get_timezone(self, guild_id: int) -> Optional[dict[str, Any]]:
         resp = await self._request("GET", "Timezone", params={"guild_id": f"eq.{guild_id}", "select": "time_delta"})
         return resp[0] if resp else None

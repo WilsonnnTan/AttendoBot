@@ -37,12 +37,12 @@ form_handler = GoogleForm_Url_Handler()
 class Attendance(commands.Cog):
     """Cog for handling slash-based attendance commands."""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
     # "Hadir" is Indonesian for "Present" (used for marking attendance).
     @app_commands.command(name="hadir", description="Mark your daily attendance")
-    async def hadir(self, interaction: discord.Interaction):
+    async def hadir(self, interaction: discord.Interaction) -> None:
         """
         Command for users to mark their daily attendance.
         Checks time window, prevents duplicate attendance, and submits the user's name to the configured Google Form.
@@ -115,7 +115,7 @@ class Attendance(commands.Cog):
 
 
 @bot.event
-async def on_ready():
+async def on_ready() -> None:
     """
     Event handler called when the bot has connected to Discord and is ready.
     Syncs slash commands to Discord.
@@ -124,7 +124,7 @@ async def on_ready():
     await bot.tree.sync()
     logger.info("Slash commands synced.")
 
-async def main():
+async def main() -> None:
     """
     Main asynchronous entry point for starting the bot.
     Loads the Attendance Cog and GoogleFormManager, then starts the bot event loop.

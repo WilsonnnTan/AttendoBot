@@ -1,7 +1,7 @@
 # Copyright (c) 2025 WilsonnnTan. All Rights Reserved.
 import re
 import asyncio
-from typing import Optional, Tuple
+from typing import Optional
 import pytz
 import json
 import httpx
@@ -26,13 +26,13 @@ logger = logging.getLogger(__name__)
 class GoogleForm_Url_Handler:
     """Handles Google Form interactions including URL extraction, data fetching, and submissions."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self._client = httpx.AsyncClient()
         max_conc = int(os.getenv("GOOGLEFORM_MAX_CONCURRENCY", 10))
         self._semaphore = asyncio.Semaphore(max_conc)
 
-    async def extract_url(self, form_url: str) -> Tuple[Optional[str], Optional[str]]:
+    async def extract_url(self, form_url: str) -> tuple[Optional[str], Optional[str]]:
         """
         Extracts both 'viewform' and 'formResponse' URLs from a Google Form link.
         """
@@ -82,7 +82,7 @@ class GoogleForm_Url_Handler:
             self.logger.error(f"Submission failed: {e}")
             return False
 
-    async def fetch_form_data(self, form_url: str) -> tuple[list | dict | None, str | None]:
+    async def fetch_form_data(self, form_url: str) -> tuple[dict | list | None, str | None]:
         """
         Fetches hidden configuration data from Google Form.
         """
@@ -103,7 +103,7 @@ class GoogleForm_Url_Handler:
             return None, "❌ An unexpected error occurred while fetching the form data."
 
     @staticmethod
-    def get_entry_ids(data: dict | list) -> iter:
+    def get_entry_ids(data: dict[str, Any] | List[Any]) -> Generator[int, None, None]:
         """
         Recursively finds all field IDs in form data.
         
@@ -125,21 +125,21 @@ class GoogleForm_Url_Handler:
 
 
 class GoogleFormManager(commands.Cog):
-    async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+    async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
         # Permission error handler for all app commands in this Cog
         if isinstance(error, app_commands.errors.MissingPermissions):
             return await interaction.response.send_message("⚠️ No Administrator permission", ephemeral=True)
         # Optionally handle other errors or re-raise
         raise error
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.form_url_handler = GoogleForm_Url_Handler()
 
 
     @app_commands.command(name="add_gform_url", description="Add or update Google Form URL for the guild.")
     @app_commands.checks.has_permissions(administrator=True)
-    async def add_gform_url(self, interaction: discord.Interaction, url: str):
+    async def add_gform_url(self, interaction: discord.Interaction, url: str) -> None:
         """
         Add/update Google Form URL for the guild.
 
@@ -170,7 +170,7 @@ class GoogleFormManager(commands.Cog):
 
     @app_commands.command(name="delete_gform_url", description="Remove Google Form URL from the guild.")
     @app_commands.checks.has_permissions(administrator=True)
-    async def delete_gform_url(self, interaction: discord.Interaction):
+    async def delete_gform_url(self, interaction: discord.Interaction) -> None:
         """
         Remove Google Form URL from the guild.
 
@@ -192,7 +192,7 @@ class GoogleFormManager(commands.Cog):
 
     @app_commands.command(name="list_gform_url", description="List current Google Form URL for the guild.")
     @app_commands.checks.has_permissions(administrator=True)
-    async def list_gform_url(self, interaction: discord.Interaction):
+    async def list_gform_url(self, interaction: discord.Interaction) -> None:
         """
         List current Google Form URL for the guild.
 
@@ -205,7 +205,7 @@ class GoogleFormManager(commands.Cog):
         
     @app_commands.command(name="set_attendance_time", description="Set the weekly attendance window. Format: <day>/<HH:MM>-<HH:MM>")
     @app_commands.checks.has_permissions(administrator=True)
-    async def set_attendance_time(self, interaction: discord.Interaction, schedule: str):
+    async def set_attendance_time(self, interaction: discord.Interaction, schedule: str) -> None:
         """
         Set the weekly attendance window.
         Format: <day>/<HH:MM>-<HH:MM>
@@ -279,7 +279,7 @@ class GoogleFormManager(commands.Cog):
 
     @app_commands.command(name="show_attendance_time", description="Show the current attendance window for the server.")
     @app_commands.checks.has_permissions(administrator=True)
-    async def show_attendance_time(self, interaction: discord.Interaction):
+    async def show_attendance_time(self, interaction: discord.Interaction) -> None:
         """
         Show the current attendance window for the server.
 
@@ -310,7 +310,7 @@ class GoogleFormManager(commands.Cog):
 
     @app_commands.command(name="delete_attendance_time", description="Delete the attendance time configuration.")
     @app_commands.checks.has_permissions(administrator=True)
-    async def delete_attendance_time(self, interaction: discord.Interaction):
+    async def delete_attendance_time(self, interaction: discord.Interaction) -> None:
         """
         Delete the attendance time configuration.
 
@@ -328,7 +328,7 @@ class GoogleFormManager(commands.Cog):
     
     @app_commands.command(name="set_timezone", description="Set the timezone offset for the guild. Range: -12 to +14")
     @app_commands.checks.has_permissions(administrator=True)
-    async def set_timezone(self, interaction: discord.Interaction, offset: str):
+    async def set_timezone(self, interaction: discord.Interaction, offset: str) -> None:
         """
         Set the timezone offset for the guild.
         Range: -12 to +14
@@ -351,7 +351,7 @@ class GoogleFormManager(commands.Cog):
 
     @app_commands.command(name="show_timezone", description="Show the timezone offset for the guild.")
     @app_commands.checks.has_permissions(administrator=True)
-    async def show_timezone(self, interaction: discord.Interaction):
+    async def show_timezone(self, interaction: discord.Interaction) -> None:
         """
         Show the timezone offset for the guild.
         
@@ -367,7 +367,7 @@ class GoogleFormManager(commands.Cog):
             
             
     @app_commands.command(name="help", description="Show all available bot commands and setup instructions.")
-    async def help(self, interaction: discord.Interaction):
+    async def help(self, interaction: discord.Interaction) -> None:
         """
         Sends Google Form setup instructions and a formatted list of all available bot commands and their usage examples.
         This command is restricted to users with administrator or manage_guild permissions.

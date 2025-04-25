@@ -7,7 +7,6 @@ import os
 import discord
 import logging
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 from discord import app_commands
 from discord.ext import commands
@@ -34,6 +33,7 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 db = DatabaseHandler()
 form_handler = GoogleForm_Url_Handler()
 
+
 class Attendance(commands.Cog):
     """Cog for handling slash-based attendance commands."""
 
@@ -49,7 +49,7 @@ class Attendance(commands.Cog):
         """
         # Defer early to prevent timeout
         await interaction.response.defer(thinking=True, ephemeral=True)
-        
+
         try:
             user = interaction.user
             guild = interaction.guild
@@ -126,6 +126,7 @@ async def on_ready() -> None:
     logger.info("Bot is ready.")
     await bot.tree.sync()
     logger.info("Slash commands synced.")
+
 
 async def main() -> None:
     """

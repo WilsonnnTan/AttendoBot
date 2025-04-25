@@ -1,0 +1,4 @@
+types-pytz
+pytest 
+flake8 
+mypy

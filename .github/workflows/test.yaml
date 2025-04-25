@@ -1,0 +1,34 @@
+name: Discord Bot Attendance CI workflow
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and Test Discord Bot Code
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.11
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install code test tools
+        run: pip install -r requirements_dev.txt
+
+      - name: Type annotations test
+        run: mypy .
+
+      - name: Lint Test
+        run: flake8 .
+      # test file not yet implemented
+      # - name: Run test
+      #   run:  pytest

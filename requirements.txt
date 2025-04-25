@@ -8,4 +8,3 @@ asyncio
 
 psycopg2-binary
 pytz
-types-pytz

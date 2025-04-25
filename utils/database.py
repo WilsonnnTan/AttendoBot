@@ -27,14 +27,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class DatabaseHandler:
+    _instance: Optional['DatabaseHandler'] = None
+    _client: Optional[httpx.AsyncClient] = None
+    _supabase_url: Optional[str] = None
+    _supabase_key: Optional[str] = None
+    _semaphore: Optional[asyncio.Semaphore] = None
     """
     Singleton class for database operations using Supabase.
     Handles guild configuration, attendance records, and timezone management.
     """
-    _instance = None
-    _client: Optional[httpx.AsyncClient] = None
-    _supabase_url: Optional[str] = None
-    _supabase_key: Optional[str] = None
 
     def __new__(cls) -> 'DatabaseHandler':
         if cls._instance is None:
@@ -62,6 +63,10 @@ class DatabaseHandler:
             "Content-Type": "application/json",
             "Accept": "application/json",
         })
+        if self._semaphore is None:
+            raise RuntimeError("Semaphore not initialized")
+        if self._client is None:
+            raise RuntimeError("AsyncClient not initialized")
         async with self._semaphore:
             try:
                 resp = await self._client.request(method, url, headers=headers, **kwargs)

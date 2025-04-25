@@ -68,8 +68,11 @@ class Attendance(commands.Cog):
 
             # Check time window
             record = await db.get_attendance_window(guild_id)
-            if record and record.get("day") is not None:
-                jkt_tz = timezone(timedelta(hours=tz.get("time_delta", 0)))
+            if record is not None and record.get("day") is not None:
+                if tz is not None and "time_delta" in tz:
+                    jkt_tz = timezone(timedelta(hours=tz["time_delta"]))
+                else:
+                    jkt_tz = timezone.utc
                 now = datetime.now(timezone.utc).astimezone(jkt_tz)
                 today = now.isoweekday()
                 current_time = now.time()
@@ -132,6 +135,8 @@ async def main() -> None:
     async with bot:
         await bot.add_cog(Attendance(bot))
         await bot.add_cog(GoogleFormManager(bot))
+        if DISCORD_TOKEN is None:
+            raise RuntimeError("DISCORD_TOKEN is not set")
         await bot.start(DISCORD_TOKEN)
 
 if __name__ == "__main__":

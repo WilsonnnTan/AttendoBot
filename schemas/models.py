@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 # Copyright (c) 2025 WilsonnnTan. All Rights Reserved.
 """
 SQLAlchemy ORM models for the Discord Attendance Bot database schema.

@@ -55,7 +55,7 @@ Copy `.env.example` to `.env` and edit it with your credentials.
 
 ### 5. Initialize the database (if needed)
 ```bash
-alembic upgrade head
+alembic -c alembic/alembic.ini upgrade head
 ```
 
 ### 6. Run the bot
@@ -88,7 +88,7 @@ docker run -d --env-file .env --name AttendoBot AttendoBot
 ### 5. Database Migrations
 If you need to run Alembic migrations inside the container:
 ```bash
-docker run --rm --env-file .env AttendoBot alembic upgrade head
+docker run --rm --env-file .env AttendoBot alembic -c alembic/alembic.ini upgrade head
 ```
 
 ---
@@ -129,7 +129,7 @@ Table creation and migrations are managed through Supabase and SQL scripts, not 
   Admins configure a Google Form URL. The bot extracts field IDs, submits attendance, and validates URLs.
 
 - **Admin Controls**:  
-  Only users with `administrator` or `manage_guild` permissions can configure the bot.
+  Only users with `administrator` permissions can configure the bot.
 
 - **Timezone & Attendance Window**:  
   Attendance is only accepted within the configured window and timezone. If not set, attendance can be marked anytime and UTC+7 (Jakarta) is used as the default timezone.

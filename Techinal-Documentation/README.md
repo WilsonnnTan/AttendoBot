@@ -55,7 +55,7 @@ Copy `.env.example` to `.env` and edit it with your credentials.
 
 ### 5. Initialize the database (if needed)
 ```bash
-alembic upgrade head
+alembic -c alembic/alembic.ini upgrade head
 ```
 
 ### 6. Run the bot
@@ -88,7 +88,7 @@ docker run -d --env-file .env --name AttendoBot AttendoBot
 ### 5. Database Migrations
 If you need to run Alembic migrations inside the container:
 ```bash
-docker run --rm --env-file .env AttendoBot alembic upgrade head
+docker run --rm --env-file .env AttendoBot alembic -c alembic/alembic.ini upgrade head
 ```
 
 ---
@@ -158,7 +158,7 @@ A: Verify your server timezone and attendance window configuration with `/show_t
 A: Use `/delete_attendance_time` or `/delete_gform_url` as an admin.
 
 **Q: How do I migrate the database?**  
-A: Use `alembic upgrade head` locally, or run the migration command inside your Docker container as shown above.
+A: Use `alembic -c alembic/alembic.ini upgrade head` locally, or run the migration command inside your Docker container as shown above.
 
 ---
 

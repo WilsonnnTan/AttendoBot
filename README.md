@@ -32,7 +32,7 @@ A Discord bot that automates attendance tracking using Google Forms. The bot all
 
 ---
 
-For setup, deployment, and technical documentation, see [DOCUMENTATION.md](Techinal-Documentation/README.md).
+For setup, deployment, and technical documentation, see [Technical-Documentation](Techinal-Documentation/README.md).
 
 ## License
 
